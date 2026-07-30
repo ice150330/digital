@@ -8,7 +8,7 @@
 > - **`CHANGE.md`：** 每次有意义修改的人工记录  
 > **冲突优先级：** 硬性禁止项以本文件为准；前端视觉/交互以 `DESIGN.md` 为准；范围以计划书为准。  
 > **语言：** 用户可见说明、文档、注释（非标识符）用**中文**。  
-> **最后同步：** 2026-07-30（v0.3 双轨存储：SQLite 主数据 + outputs 产物）
+> **最后同步：** 2026-07-30（v0.4：P0/P1 主线已落地 — 业务页、Agent、分群/规则、batch、项目内 Pi）
 
 ---
 
@@ -427,7 +427,7 @@ PiRuntime.run()
 | GET | `/models/metrics` | P0 |
 | GET | `/models/metrics/{run_id}` | P0 |
 | POST | `/models/predict` | P0 |
-| POST | `/models/predict/batch` | P1（条数上限） |
+| POST | `/models/predict/batch` | P1（条数上限 200） |
 | GET | `/explain/global` | P0 |
 | POST | `/explain/customer` | P0 |
 | GET | `/segments` | P1 |
@@ -523,20 +523,22 @@ audit:
 
 禁止虚假完成：测试失败不称完成；跳过步骤须声明。
 
-**复现命令（当前脚手架 + 后续目标）：**
+**复现命令（P0/P1 主线）：**
 
 ```text
 pip install -e ".[dev]"
+# 可选关联规则等：pip install -e ".[dev,ml]"
 python scripts/init_db.py
 python scripts/import_campaigns.py
+python scripts/run_all.py
+python scripts/run_all.py --with-p1          # 分群 + 规则
+python scripts/setup_pi_cli.py               # 可选，仅 tools/pi-cli/
 pytest
 uvicorn digital_marketing.api.main:app --reload --port 8000
 cd frontend && npm install && npm run dev
-
-# 后续
-python scripts/run_all.py
-python scripts/setup_pi_cli.py    # 可选，项目内 Pi
 ```
+
+**实现状态摘要：** 清洗/训练/解释/P0+P1 API/七路由业务页/Local Agent/batch/项目内 Pi setup 已落地；阶段 8 为演示与文档打磨。P2 默认不做。
 
 ---
 

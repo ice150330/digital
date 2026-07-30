@@ -26,6 +26,17 @@
 
 ## 变更日志
 
+## 2026-07-30 — docs：同步 README/AGENTS/计划至 P0+P1 终态
+
+- **类型：** docs
+- **范围：** `README.md`、`AGENTS.md`、`docs/plans/2026-07-30-全量前后端开发计划.md`、`CHANGE.md`
+- **摘要：** 从零路径、脚本表、API 表、演示路径；AGENTS 复现命令与实现状态；计划状态改为阶段 0–7 已落地
+- **原因：** 用户要求提交推送前同步文档
+- **影响：** 新人/答辩可按 README 跑通；文档不再写「仅脚手架」
+- **破坏性：** 无
+- **关联：** commits `72b7080` `588d4f4` `9bec706` `7bb7663`（阶段 4–7）
+- **验证：** 文档与代码命令对齐；`pytest` 此前 33 passed
+
 ## 2026-07-30 — 阶段7：batch 预测 + 项目内 Pi setup
 
 - **类型：** feat
@@ -37,6 +48,7 @@
 - **原因：** 全量计划 W7
 - **影响：** 名单筛选演示 + Pi 可装可降级
 - **破坏性：** 无
+- **关联：** commit `7bb7663`
 - **验证：** `python scripts/setup_pi_cli.py`；`pytest tests/test_api_core.py tests/test_pi_path.py`
 
 ## 2026-07-30 — 阶段6：K-Means 分群 + 关联规则 + API/页
@@ -50,7 +62,7 @@
 - **原因：** 全量计划 W6（P1）
 - **影响：** 分群/规则页可真数据演示；run_all 默认仍 P0，`--with-p1` 可选
 - **破坏性：** 无
-- **关联：** `docs/plans/2026-07-30-全量前后端开发计划.md` W6
+- **关联：** `docs/plans/2026-07-30-全量前后端开发计划.md` W6；commit `9bec706`
 - **验证：** `python scripts/04_train_cluster.py`；`05_mine_rules.py`；`pytest tests/test_segment_rules.py tests/test_agent_tools.py` 6 passed
 
 ## 2026-07-30 — 阶段5：LocalToolRuntime + Agent API/页
@@ -61,6 +73,7 @@
 - **原因：** 全量计划 W5
 - **影响：** 分析台可演示工具接地
 - **破坏性：** 无
+- **关联：** commit `588d4f4`
 - **验证：** `pytest tests/test_agent_tools.py` 4+ passed
 
 ## 2026-07-30 — 阶段4：前端业务页 tokens 与七路由
@@ -71,6 +84,7 @@
 - **原因：** 全量计划 W4
 - **影响：** 演示路径总览→模型→客户可走
 - **破坏性：** 无
+- **关联：** commit `72b7080`
 - **验证：** `npm run build`
 
 ## 2026-07-30 — 阶段3：SHAP/贡献解释 + P0 业务 API + run_all

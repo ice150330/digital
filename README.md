@@ -12,30 +12,30 @@
 | [CLAUDE.md](CLAUDE.md) | Claude Code 会话入口 |
 | [docs/plans/](docs/plans/) | 范围与里程碑 |
 
-## 当前状态（脚手架）
+## 当前状态（2026-07-30）
 
-已完成 **第一步：框架搭建 + SQLite 初始化**：
+**已落地（P0 + P1 主线）：**
 
-- 可安装 Python 包 `digital_marketing`（`src/`）
-- SQLite 主数据轨：`outputs/db/app.db`（CSV 导入，可重建）
-- FastAPI `GET /api/v1/health`（统一 envelope）
-- Vue3 空壳：顶栏健康点 + 侧栏占位 + 首页联调 health
+- 清洗 / 分层 split / 质量报告；E0 Dummy、E1 Logistic、E3 LightGBM；PR-AUC 主指标
+- 全局/局部解释（LightGBM `pred_contrib` 优先）
+- P0/P1 API：overview、metrics、predict、**batch**、explain、**segments**、**rules**、**agent**
+- 前端七路由真数据页：总览 / 模型 / 客户 / 分群 / 规则 / 分析台 / 关于
+- Local Agent（白名单工具 + 五段契约 + tool_trace + 审计）；无 Key → template
+- 项目内 Pi：`python scripts/setup_pi_cli.py` → 仅 `tools/pi-cli/`（禁止全局 `pi`）
 
-**已实现：** 清洗/split；E0/E1/E3 训练；解释产物；P0 API（overview/metrics/predict/explain）；`run_all`。  
-
-**尚未实现：** 完整业务页、Agent/Pi、分群/规则。
+**可继续打磨：** 演示 checklist 深度、README 论文表导出、阶段 8 测试/文案；**P2 默认不做**。
 
 ## 双轨存储（必读）
 
 ```text
 data/*.csv（只读真相源）
     → import → outputs/db/app.db     【主数据轨：查询/列表】
-outputs/{models,metrics,...}         【产物轨：文件；metrics 不进 SQLite】
+outputs/{models,metrics,explain,segments,rules,...}  【产物轨：文件；metrics 不进 SQLite】
 ```
 
 禁止覆盖原始 CSV；禁止把 `app.db` 放进 `data/`。
 
-## 快速上手
+## 快速上手（从零）
 
 ### 1. 后端
 
@@ -46,22 +46,29 @@ python -m venv .venv
 source .venv/Scripts/activate
 
 pip install -e ".[dev]"
+# 可选：关联规则 mlxtend 等 → pip install -e ".[dev,ml]"
 
 # 初始化库表并导入 CSV（默认全量重建 campaigns）
 python scripts/init_db.py
 python scripts/import_campaigns.py
 
+# 分析流水线（P0）
+python scripts/run_all.py
+# 含分群 + 关联规则（P1）
+python scripts/run_all.py --with-p1
+
+# 可选：项目内 Pi stub
+python scripts/setup_pi_cli.py
+
 # 测试
 pytest
-pytest tests/test_health.py          # 单文件
-pytest tests/test_health.py::test_health_ok_with_data  # 单用例（名称以文件为准）
 
 # API
 uvicorn digital_marketing.api.main:app --reload --port 8000
 # 探测：curl http://127.0.0.1:8000/api/v1/health
 ```
 
-可选环境变量见 [.env.example](.env.example)（`DIGITAL_ROOT`、`DIGITAL_DATABASE_URL` 等）。配置见 [config/settings.yaml](config/settings.yaml)。
+可选环境变量见 [.env.example](.env.example)（`DIGITAL_ROOT`、`DIGITAL_DATABASE_URL`、`DIGITAL_LLM_API_KEY` / `OPENAI_API_KEY` 等）。配置见 [config/](config/)。
 
 ### 2. 前端
 
@@ -79,20 +86,55 @@ npm run dev
 |------|------|
 | `python scripts/init_db.py` | 创建/确认 `outputs/db/app.db` 表结构 |
 | `python scripts/import_campaigns.py` | 从 `data/*.csv` 导入 campaigns（默认 force 重建） |
-| `python scripts/import_campaigns.py --no-force` | 非强制（行为以实现为准） |
 | `python scripts/01_clean_data.py` | 清洗 → `outputs/processed/` + split + 质量报告 |
-| `python scripts/02_train_classify.py` | E0/E1/E3 训练 → outputs/models 与 metrics |
-| `python scripts/03_explain_shap.py` | 全局解释 → outputs/explain |
+| `python scripts/02_train_classify.py` | E0/E1/E3 → `outputs/models` 与 `metrics` |
+| `python scripts/03_explain_shap.py` | 全局解释 → `outputs/explain` |
+| `python scripts/04_train_cluster.py` | K-Means 分群（特征不含 Conversion） |
+| `python scripts/05_mine_rules.py` | 关联规则（相关≠因果） |
 | `python scripts/run_all.py` | 清洗 → 训练 → 解释 |
+| `python scripts/run_all.py --with-p1` | 上式 + 分群 + 规则 |
+| `python scripts/setup_pi_cli.py` | 仅项目内 `tools/pi-cli/` Pi stub/安装 |
 | `pytest` | 后端测试 |
+
+### 4. 演示路径（约 8–10 分钟）
+
+1. **总览** `/`：样本量、正类比、渠道、质量 issue  
+2. **模型** `/models`：PR-AUC 主表 + Dummy 对照（Accuracy 仅对照）  
+3. **客户** `/customers`：ID 预测 + 局部解释；可选批量 ID  
+4. **分析台** `/agent`：芯片提问，展开 **tool_trace**（无 Key 也可用）  
+5. **分群 / 规则** `/segments` `/rules`：Disclaimer 可见；需先 `--with-p1`  
+6. **关于** `/about`：复现命令  
+
+失败预案：Swagger `http://127.0.0.1:8000/docs`；Agent 选 template；Pi 未装时自动降级。
+
+## 主要 API（前缀 `/api/v1`）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/health` | 含 `artifacts_ok`、`default_run_id` |
+| GET | `/data/overview` | 总览 |
+| GET | `/meta/features` | 入模特征 |
+| GET | `/models/metrics` | 多 run；主字段 `pr_auc` |
+| POST | `/models/predict` | 单条：`proba/label/threshold/run_id` |
+| POST | `/models/predict/batch` | 批量，上限 200 |
+| GET | `/explain/global` | 全局解释 |
+| POST | `/explain/customer` | 局部解释 |
+| GET | `/segments` | 分群摘要 |
+| POST | `/segments/assign` | 分配簇 |
+| GET | `/rules` | 关联规则（可筛 lift） |
+| POST | `/agent/chat` | 工具接地对话 |
+| GET | `/agent/pi/status` | 项目内 Pi 状态 |
+
+统一 envelope：`{ ok, data, error, request_id }`。细节以 [AGENTS.md](AGENTS.md) 为准。
 
 ## 技术栈（锁定）
 
 - Python 3.11+、FastAPI、SQLAlchemy 2.0（同步 sqlite3）
-- Vue 3 + Vite + TypeScript + Element Plus + axios + vue-router
-- 分类：scikit-learn、LightGBM（E0/E1/E3）；解释优先 `pred_contrib`（可选 shap）
-- 后续：完整业务页、Agent、项目内 Pi（`tools/pi-cli/`，禁止全局 `pi`）
+- Vue 3 + Vite + TypeScript + Element Plus + ECharts + axios + vue-router（**npm**）
+- 分类：scikit-learn、LightGBM；解释优先 `pred_contrib`（可选 shap）
+- 规则：可选 mlxtend（`[ml]` extra）
+- Agent：LocalToolRuntime + 可选项目内 Pi（`tools/pi-cli/`，禁止全局 `pi`）
 
 ## 许可与数据
 
-原始数据集位于 `data/`，请保持只读；大产物与 `*.db` 默认不入库（见 `.gitignore`）。
+原始数据集位于 `data/`，请保持只读；大产物与 `*.db` 默认不入库（见 `.gitignore`）。LLM Key 仅环境变量 / 本地 `.env`，仓库只留 `.env.example`。
