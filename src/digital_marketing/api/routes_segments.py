@@ -41,3 +41,25 @@ def segments_assign(body: AssignRequest, request: Request):
         return Envelope[AssignData](ok=True, data=data, error=None, request_id=request_id)
     except ArtifactError as e:
         return from_artifact_error(request, e)
+
+
+@router.get("/segments/compare", response_model=Envelope[dict])
+def segments_compare(request: Request):
+    """多算法对比 + 稳定性 + 自动命名（compare.json 产物）。"""
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        data = artifacts.get_segments_compare()
+        return Envelope[dict](ok=True, data=data, error=None, request_id=request_id)
+    except ArtifactError as e:
+        return from_artifact_error(request, e)
+
+
+@router.get("/segments/projection", response_model=Envelope[dict])
+def segments_projection(request: Request):
+    """PCA 2D 投影点。"""
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        data = artifacts.get_segments_projection()
+        return Envelope[dict](ok=True, data=data, error=None, request_id=request_id)
+    except ArtifactError as e:
+        return from_artifact_error(request, e)

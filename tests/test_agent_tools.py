@@ -73,3 +73,90 @@ def test_agent_chat_contract(agent_client: TestClient):
 def test_unknown_tool():
     out = run_tool("not_a_real_tool")
     assert out["ok"] is False
+
+
+# ---------------------------------------------------------------------------
+# 阶段9 W9c：新工具注册与接地
+# ---------------------------------------------------------------------------
+
+
+def test_tool_registry_has_stage9():
+    names = set(list_tools())
+    for t in (
+        "compare_experiments",
+        "get_calibration_summary",
+        "get_lift_table",
+        "simulate_budget",
+        "counterfactual_explain",
+    ):
+        assert t in names
+
+
+def test_compare_experiments_tool():
+    out = run_tool("compare_experiments")
+    assert out["ok"] is True
+    r = out["result"]
+    assert r["n_runs"] >= 3
+    assert r["items"]
+    row = r["items"][0]
+    for k in ("run_id", "pr_auc", "cv_pr_auc_mean", "pr_auc_ci_low", "pr_auc_ci_high"):
+        assert k in row
+
+
+def test_get_calibration_summary_tool():
+    out = run_tool("get_calibration_summary")
+    assert out["ok"] is True
+    r = out["result"]
+    assert r["method"] in ("sigmoid", "isotonic")
+    assert r["brier_after"] is not None
+
+
+def test_get_lift_table_tool():
+    out = run_tool("get_lift_table")
+    assert out["ok"] is True
+    assert len(out["result"]["lift_deciles"]) == 10
+
+
+def test_simulate_budget_tool():
+    out = run_tool("simulate_budget", budget=1000.0)
+    assert out["ok"] is True
+    r = out["result"]
+    assert r["recommended_k"] >= 0
+    assert r["disclaimer"]
+
+
+def test_counterfactual_tool_requires_customer():
+    out = run_tool("counterfactual_explain")
+    assert out["ok"] is False
+
+
+def test_grounding_facts_for_new_tools():
+    from digital_marketing.agent.grounding import facts_from_tool
+
+    out = run_tool("get_lift_table")
+    facts = facts_from_tool("get_lift_table", out)
+    assert any("lift" in f for f in facts)
+
+    out2 = run_tool("compare_experiments")
+    facts2 = facts_from_tool("compare_experiments", out2)
+    assert any("run=" in f for f in facts2)
+
+    out3 = run_tool("counterfactual_explain", customer_id=8000, target_proba=0.95)
+    if out3["ok"]:
+        facts3 = facts_from_tool("counterfactual_explain", out3)
+        assert any("反事实" in f for f in facts3)
+
+
+def test_plan_tools_routes_stage9_keywords():
+    from digital_marketing.agent.local_runtime import plan_tools
+
+    plans = [name for name, _ in plan_tools("做一下实验对比和消融分析")]
+    assert "compare_experiments" in plans
+    plans2 = [name for name, _ in plan_tools("预算 2000 怎么分配触达名单")]
+    assert "simulate_budget" in plans2
+    plans3 = [name for name, _ in plan_tools("客户 8000 的反事实怎么改能到 0.9")]
+    assert "counterfactual_explain" in plans3
+    plans4 = [name for name, _ in plan_tools("校准前后 brier 对比")]
+    assert "get_calibration_summary" in plans4
+    plans5 = [name for name, _ in plan_tools("给我 lift 十分位增益表")]
+    assert "get_lift_table" in plans5

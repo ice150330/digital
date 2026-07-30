@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
 from digital_marketing.api.errors import from_artifact_error
+from digital_marketing.schemas.advanced import CurvesData, LiftData, ThresholdScanData
 from digital_marketing.schemas.common import Envelope
 from digital_marketing.schemas.models import (
     BatchPredictData,
@@ -73,5 +74,45 @@ def models_predict_batch(body: BatchPredictRequest, request: Request):
         )
         data = BatchPredictData.model_validate(raw)
         return Envelope[BatchPredictData](ok=True, data=data, error=None, request_id=request_id)
+    except ArtifactError as e:
+        return from_artifact_error(request, e)
+
+
+@router.get("/models/curves", response_model=Envelope[CurvesData])
+def models_curves(request: Request, run_id: str | None = Query(default=None)):
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        data = CurvesData.model_validate(artifacts.get_curves(run_id))
+        return Envelope[CurvesData](ok=True, data=data, error=None, request_id=request_id)
+    except ArtifactError as e:
+        return from_artifact_error(request, e)
+
+
+@router.get("/models/calibration", response_model=Envelope[dict])
+def models_calibration(request: Request, run_id: str | None = Query(default=None)):
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        data = artifacts.get_calibration(run_id)
+        return Envelope[dict](ok=True, data=data, error=None, request_id=request_id)
+    except ArtifactError as e:
+        return from_artifact_error(request, e)
+
+
+@router.get("/models/lift", response_model=Envelope[LiftData])
+def models_lift(request: Request, run_id: str | None = Query(default=None)):
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        data = LiftData.model_validate(artifacts.get_lift(run_id))
+        return Envelope[LiftData](ok=True, data=data, error=None, request_id=request_id)
+    except ArtifactError as e:
+        return from_artifact_error(request, e)
+
+
+@router.get("/models/threshold-scan", response_model=Envelope[ThresholdScanData])
+def models_threshold_scan(request: Request, run_id: str | None = Query(default=None)):
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        data = ThresholdScanData.model_validate(artifacts.get_threshold_scan(run_id))
+        return Envelope[ThresholdScanData](ok=True, data=data, error=None, request_id=request_id)
     except ArtifactError as e:
         return from_artifact_error(request, e)

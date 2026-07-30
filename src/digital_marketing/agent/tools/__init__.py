@@ -21,6 +21,14 @@ REGISTRY: dict[str, ToolFn] = {
     "assign_cluster": catalog.assign_cluster,
     "top_association_rules": catalog.top_association_rules,
     "strategy_brief": catalog.strategy_brief,
+    # 阶段9：增强评估 / 模拟 / 反事实
+    "compare_experiments": catalog.compare_experiments,
+    "get_calibration_summary": catalog.get_calibration_summary,
+    "get_lift_table": catalog.get_lift_table,
+    "simulate_budget": catalog.simulate_budget,
+    "counterfactual_explain": catalog.counterfactual_explain,
+    # 阶段9：Pi 编排中枢 —— 自动报告
+    "generate_analysis_report": catalog.generate_analysis_report,
 }
 
 

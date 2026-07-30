@@ -154,3 +154,96 @@ def strategy_brief() -> dict[str, Any]:
     except Exception as e:  # noqa: BLE001
         brief["rules_note"] = str(e)
     return brief
+
+
+# ---------------------------------------------------------------------------
+# 阶段9 新增工具（增强评估 / 模拟 / 反事实）
+# ---------------------------------------------------------------------------
+
+
+def compare_experiments() -> dict[str, Any]:
+    """实验对比：全量 leaderboard（CV/CI/校准/消融标记）。"""
+    items = artifacts.list_metrics()
+    default_run = None
+    try:
+        default_run = artifacts.pick_default_run_id()
+    except ArtifactError:
+        pass
+    return {
+        "n_runs": len(items),
+        "default_run_id": default_run,
+        "primary_metric": "pr_auc",
+        "items": items,
+        "note": "E5 为含 ConversionRate 的泄漏消融、E6 为去质量 flag 消融，二者不参选默认 run；"
+        "cv_pr_auc_mean/std 为 train 5-fold；pr_auc_ci_* 为 test bootstrap 95% CI",
+    }
+
+
+def get_calibration_summary(run_id: str | None = None) -> dict[str, Any]:
+    """校准摘要（默认取 E8 校准 run）。"""
+    rid = run_id or "E8_lightgbm_calibrated"
+    data = artifacts.get_calibration(rid)
+    return {
+        "run_id": data.get("run_id", rid),
+        "method": data.get("method"),
+        "brier_before": (data.get("before") or {}).get("brier"),
+        "brier_after": (data.get("after") or {}).get("brier"),
+        "ece_before": (data.get("before") or {}).get("ece"),
+        "ece_after": (data.get("after") or {}).get("ece"),
+        "note": data.get("note"),
+    }
+
+
+def get_lift_table(run_id: str | None = None) -> dict[str, Any]:
+    """lift/gains 十分位表。"""
+    return artifacts.get_lift(run_id)
+
+
+def simulate_budget(
+    budget: float | None = None,
+    value_per_conversion: float = 10.0,
+    cost_per_contact: float = 4.0,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    """预算分配模拟（期望值口径，非因果）。"""
+    raw = artifacts.simulate_budget(
+        budget=budget,
+        value_per_conversion=value_per_conversion,
+        cost_per_contact=cost_per_contact,
+        run_id=run_id,
+        export=False,
+    )
+    # Agent 场景压缩曲线点，避免超长上下文
+    if len(raw.get("curve") or []) > 12:
+        raw["curve"] = raw["curve"][::2]
+        raw["curve_note"] = "曲线已抽稀展示"
+    return raw
+
+
+def counterfactual_explain(
+    customer_id: int | None = None,
+    feature: str | None = None,
+    target_proba: float | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    """反事实（模型行为口径）：单特征扰动曲线 + 可选达标路径。"""
+    if customer_id is None:
+        raise ArtifactError("VALIDATION_ERROR", "counterfactual_explain 需要 customer_id")
+    return artifacts.counterfactual_customer(
+        customer_id=customer_id,
+        feature=feature,
+        target_proba=target_proba,
+        run_id=run_id,
+        grid_size=15,
+        max_steps=6,
+    )
+
+
+def generate_analysis_report(
+    title: str = "数字营销转化分析报告",
+    sections: list[str] | None = None,
+) -> dict[str, Any]:
+    """一键生成分析报告（编排只读工具 → markdown 落盘 outputs/reports/）。"""
+    from digital_marketing.agent.report import generate_analysis_report as _gen
+
+    return _gen(title=title, sections=sections)

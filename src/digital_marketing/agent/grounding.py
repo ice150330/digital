@@ -138,6 +138,71 @@ def facts_from_tool(tool: str, payload: dict[str, Any]) -> list[str]:
                 f"{rule.get('antecedents')} => {rule.get('consequents')} "
                 f"support={rule.get('support')} conf={rule.get('confidence')} lift={rule.get('lift')}"
             )
+    elif tool == "compare_experiments":
+        out.append(f"实验数 n={r.get('n_runs')}，默认 run={r.get('default_run_id')}")
+        for it in (r.get("items") or [])[:8]:
+            cv = it.get("cv_pr_auc_mean")
+            ci = (it.get("pr_auc_ci_low"), it.get("pr_auc_ci_high"))
+            tag = "（消融，不作默认）" if it.get("ablation") else ""
+            out.append(
+                f"run={it.get('run_id')} PR-AUC={it.get('pr_auc')}"
+                + (f" CV={cv:.4f}±{it.get('cv_pr_auc_std'):.4f}" if cv is not None else "")
+                + (f" CI=[{ci[0]:.4f},{ci[1]:.4f}]" if None not in ci else "")
+                + tag
+            )
+        if r.get("note"):
+            out.append(str(r["note"]))
+    elif tool == "get_calibration_summary":
+        out.append(
+            f"校准 run={r.get('run_id')} method={r.get('method')} "
+            f"brier {r.get('brier_before')}→{r.get('brier_after')} "
+            f"ece {r.get('ece_before')}→{r.get('ece_after')}"
+        )
+    elif tool == "get_lift_table":
+        out.append(f"lift 表 run={r.get('run_id')}")
+        for d in (r.get("lift_deciles") or [])[:3]:
+            out.append(
+                f"十分位 {d.get('decile')}: n={d.get('n')}, 累计捕获率={d.get('capture_rate'):.4f}, lift={d.get('lift'):.4f}"
+            )
+    elif tool == "simulate_budget":
+        p = r.get("params") or {}
+        out.append(
+            f"预算模拟 run={r.get('run_id')} 价值={p.get('value_per_conversion')} 成本={p.get('cost_per_contact')} "
+            f"推荐 K={r.get('recommended_k')}/{r.get('n_population')}"
+        )
+        rec = r.get("recommended") or {}
+        if rec:
+            out.append(
+                f"推荐点期望转化={rec.get('expected_conversions')} 期望净收益={rec.get('expected_net')} "
+                f"预算占用={rec.get('budget_used')}"
+            )
+        if r.get("disclaimer"):
+            out.append(str(r["disclaimer"]))
+    elif tool == "counterfactual_explain":
+        cf = r.get("counterfactual") or {}
+        curve = r.get("curve") or {}
+        if curve:
+            out.append(
+                f"单特征扰动 feature={curve.get('feature')} base={curve.get('base_value')} "
+                f"proba 区间=[{min(curve.get('proba') or [0]):.4f},{max(curve.get('proba') or [0]):.4f}]"
+            )
+        if cf:
+            out.append(
+                f"反事实 base={cf.get('base_proba'):.4f} target={cf.get('target_proba')} "
+                f"final={cf.get('final_proba'):.4f} achieved={cf.get('achieved')} steps={cf.get('n_steps')}"
+            )
+            for s in (cf.get("steps") or [])[:4]:
+                out.append(f"步骤 {s.get('feature')}: {s.get('from')}→{s.get('to')} (proba={s.get('proba_after'):.4f})")
+            out.append(str(cf.get("disclaimer") or ""))
+    elif tool == "generate_analysis_report":
+        out.append(
+            f"报告《{r.get('title')}》：{r.get('n_sections_ok')}/{r.get('n_sections')} 节成功，"
+            f"落盘 {r.get('report_path')}"
+        )
+        for t in (r.get("tool_trace") or [])[:10]:
+            out.append(f"章节[{t.get('section')}] 工具 {t.get('tool')} ok={t.get('ok')}")
+        if r.get("disclaimer"):
+            out.append(str(r["disclaimer"]))
     else:
         out.append(f"工具 {tool} 已返回结果键: {list(r.keys())[:8]}")
     return out

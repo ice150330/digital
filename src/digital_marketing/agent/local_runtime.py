@@ -68,6 +68,19 @@ def plan_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
             plans.append(("assign_cluster", {"customer_id": cid}))
     if any(k in msg for k in ("规则", "association", "lift", "关联")):
         plans.append(("top_association_rules", {"min_lift": 1.0, "limit": 10}))
+    # 阶段9：实验对比 / 校准 / 升降 / 预算模拟 / 反事实
+    if any(k in msg for k in ("实验对比", "对比实验", "compare", "消融", "ablation", "stacking", "集成", "所有模型", "全量")):
+        plans.append(("compare_experiments", {}))
+    if any(k in msg for k in ("校准", "calibrat", "brier", "ece")):
+        plans.append(("get_calibration_summary", {}))
+    if any(k in msg for k in ("升降", "增益", "gains", "十分位", "decile")):
+        plans.append(("get_lift_table", {}))
+    if any(k in msg for k in ("预算", "budget", "触达", "名单", "roi", "收益模拟", "模拟")):
+        plans.append(("simulate_budget", {}))
+    if any(k in msg for k in ("报告", "report", "生成分析", "论文素材", "汇总报告")):
+        plans.append(("generate_analysis_report", {}))
+    if any(k in msg for k in ("反事实", "counterfactual", "如果", "what-if", "whatif", "怎么改", "如何提升概率")) and cid is not None:
+        plans.append(("counterfactual_explain", {"customer_id": cid, "target_proba": 0.9}))
     if any(k in msg for k in ("策略", "brief", "综合", "建议摘要")):
         plans.append(("strategy_brief", {}))
     if any(k in msg for k in ("画像", "概览", "样本", "overview", "数据规模", "多少行")):
@@ -132,6 +145,10 @@ def run_local_chat(
         inferences.append("关联规则为相关关系，不构成因果结论。")
     if any(t.get("tool") == "segment_summary" for t in tool_trace):
         inferences.append("分群训练不含 Conversion，簇转化率为事后统计。")
+    if any(t.get("tool") == "simulate_budget" for t in tool_trace):
+        inferences.append("预算模拟为期望值口径（概率×价值−成本），非因果 uplift。")
+    if any(t.get("tool") == "counterfactual_explain" for t in tool_trace):
+        inferences.append("反事实为模型行为（敏感性）分析，不构成因果建议。")
 
     recommendations = [
         "答辩演示路径：总览 → 模型 PR-AUC/Dummy → 客户解释 → 本页展开 tool_trace。",

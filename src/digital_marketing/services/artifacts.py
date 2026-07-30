@@ -107,20 +107,49 @@ def get_metrics(run_id: str) -> dict[str, Any]:
     return load_json(path)
 
 
+def _is_ablation_run(r: dict[str, Any]) -> bool:
+    """消融/泄漏实验 run（E5 含 ConversionRate、E6 去 flag 等）不参选默认 run。
+
+    leaderboard 新行自带标记；旧产物回退读 run 目录 meta.json 判定。
+    """
+    if r.get("includes_conversion_rate") or r.get("ablation"):
+        return True
+    run_id = r.get("run_id")
+    if not run_id:
+        return False
+    meta_path = models_dir() / str(run_id) / "meta.json"
+    if not meta_path.is_file():
+        return False
+    try:
+        meta = load_json(meta_path)
+    except ArtifactError:
+        return False
+    if meta.get("includes_conversion_rate") or meta.get("ablation"):
+        return True
+    cols = (meta.get("feature_schema") or {}).get("feature_columns_raw") or []
+    return "ConversionRate" in cols
+
+
 def pick_default_run_id() -> str:
-    """选默认 run：非 Dummy 中 PR-AUC 最高；同分偏好 LightGBM/树模型。"""
+    """选默认 run：非 Dummy、非消融 run 中 PR-AUC 最高；同分偏好 LightGBM/树模型。"""
     rows = list_metrics()
     if not rows:
         raise ArtifactError("MODEL_NOT_LOADED", "尚无训练 metrics，请运行 python scripts/02_train_classify.py")
     non_dummy = [r for r in rows if str(r.get("exp_id", "")).upper() != "E0"]
-    pool = non_dummy or rows
+    eligible = [r for r in non_dummy if not _is_ablation_run(r)]
+    pool = eligible or non_dummy or rows
 
     def _score(r: dict[str, Any]) -> tuple:
         pr = float(r.get("pr_auc") or 0)
         name = f"{r.get('model_name', '')} {r.get('run_id', '')} {r.get('exp_id', '')}".lower()
-        # 近并列时偏好树模型（便于 pred_contrib / SHAP）
-        tree_bonus = 1 if any(k in name for k in ("lightgbm", "lgbm", "forest", "e3")) else 0
-        return (round(pr, 3), tree_bonus)
+        # 近并列（0.01 窗口，差异远在 bootstrap CI 内）时偏好纯树模型（便于 pred_contrib / SHAP）；
+        # stacking 含 lgbm 基学习器但不是纯树，不享解释友好加成
+        tree_bonus = (
+            1
+            if ("stacking" not in name and any(k in name for k in ("lightgbm", "lgbm", "forest")))
+            else 0
+        )
+        return (round(pr, 2), tree_bonus, pr)
 
     best = max(pool, key=_score)
     run_id = best.get("run_id")
@@ -130,7 +159,12 @@ def pick_default_run_id() -> str:
 
 
 def load_runtime(run_id: str | None = None) -> dict[str, Any]:
-    """加载 model + transformer + meta。"""
+    """加载 model + transformer + meta。
+
+    transformer 解析顺序：run 目录 per-run transformer（E5/E6 等特征变体）
+    → 全局 processed/feature_transformer.joblib → meta 内快照路径。
+    特征列/展开名以 meta.feature_schema 快照为准（变体 run 列集合不同）。
+    """
     rid = run_id or pick_default_run_id()
     run_dir = models_dir() / rid
     meta_path = run_dir / "meta.json"
@@ -140,21 +174,29 @@ def load_runtime(run_id: str | None = None) -> dict[str, Any]:
     meta = load_json(meta_path)
     model = joblib.load(model_path)
     schema = get_feature_schema()
-    tr_path = Path(schema.get("transformer_path") or (processed_dir() / "feature_transformer.joblib"))
-    if not tr_path.is_file():
-        # meta 内可能有绝对路径
-        tr_path = Path((meta.get("feature_schema") or {}).get("transformer_path", ""))
-    if not tr_path.is_file():
-        raise ArtifactError("ARTIFACT_MISSING", "缺少 feature_transformer.joblib")
-    transformer = joblib.load(tr_path)
+    meta_schema = meta.get("feature_schema") or {}
+
+    run_tr_path = run_dir / "transformer.joblib"
+    if run_tr_path.is_file():
+        transformer = joblib.load(run_tr_path)
+    else:
+        tr_path = Path(schema.get("transformer_path") or (processed_dir() / "feature_transformer.joblib"))
+        if not tr_path.is_file():
+            # meta 内可能有绝对路径
+            tr_path = Path((meta.get("feature_schema") or {}).get("transformer_path", ""))
+        if not tr_path.is_file():
+            raise ArtifactError("ARTIFACT_MISSING", "缺少 feature_transformer.joblib")
+        transformer = joblib.load(tr_path)
     return {
         "run_id": rid,
         "model": model,
         "meta": meta,
         "transformer": transformer,
         "schema": schema,
-        "feature_names": list(schema.get("feature_names_out") or []),
-        "raw_feature_cols": list(schema.get("feature_columns_raw") or []),
+        "feature_names": list(meta_schema.get("feature_names_out") or schema.get("feature_names_out") or []),
+        "raw_feature_cols": list(
+            meta_schema.get("feature_columns_raw") or schema.get("feature_columns_raw") or []
+        ),
     }
 
 
@@ -375,4 +417,232 @@ def meta_features() -> dict[str, Any]:
             "PreviousPurchases": 1,
             "LoyaltyPoints": 100,
         },
+    }
+
+
+# ---------------------------------------------------------------------------
+# 阶段9：增强评估 / 高级解释 / 模拟器门面
+# ---------------------------------------------------------------------------
+
+
+def _resolve_run_id(run_id: str | None) -> str:
+    return run_id or pick_default_run_id()
+
+
+def get_curves(run_id: str | None = None) -> dict[str, Any]:
+    """PR/ROC 曲线点 + bootstrap CI（来自 metrics 产物）。"""
+    rid = _resolve_run_id(run_id)
+    m = get_metrics(rid)
+    if "pr_curve" not in m or "roc_curve" not in m:
+        raise ArtifactError(
+            "ARTIFACT_MISSING",
+            f"run {rid} 缺少曲线产物，请运行 python scripts/06_train_full.py",
+            {"run_id": rid},
+        )
+    return {
+        "run_id": rid,
+        "pr_auc": m.get("pr_auc"),
+        "roc_auc": m.get("roc_auc"),
+        "ci": m.get("ci") or {},
+        "cv": m.get("cv") or {},
+        "pr_curve": m["pr_curve"],
+        "roc_curve": m["roc_curve"],
+    }
+
+
+def get_calibration(run_id: str | None = None) -> dict[str, Any]:
+    """校准前后对比（calibration_<run_id>.json 产物）。"""
+    rid = _resolve_run_id(run_id)
+    path = metrics_dir() / f"calibration_{rid}.json"
+    if not path.is_file():
+        raise ArtifactError(
+            "ARTIFACT_MISSING",
+            f"缺少校准产物 calibration_{rid}.json（仅 calibrate 实验产生，如 E8）",
+            {"run_id": rid},
+        )
+    return load_json(path)
+
+
+def get_lift(run_id: str | None = None) -> dict[str, Any]:
+    rid = _resolve_run_id(run_id)
+    m = get_metrics(rid)
+    if "lift_deciles" not in m:
+        raise ArtifactError(
+            "ARTIFACT_MISSING",
+            f"run {rid} 缺少 lift 产物，请运行 python scripts/06_train_full.py",
+            {"run_id": rid},
+        )
+    return {
+        "run_id": rid,
+        "lift_deciles": m["lift_deciles"],
+        "note": "按预测概率降序十分位；capture_rate 为累计正类捕获率，lift 为相对全量基准的倍数",
+    }
+
+
+def get_threshold_scan(run_id: str | None = None) -> dict[str, Any]:
+    rid = _resolve_run_id(run_id)
+    m = get_metrics(rid)
+    if "threshold_scan" not in m:
+        raise ArtifactError(
+            "ARTIFACT_MISSING",
+            f"run {rid} 缺少阈值扫描产物，请运行 python scripts/06_train_full.py",
+            {"run_id": rid},
+        )
+    scan = dict(m["threshold_scan"])
+    scan["run_id"] = rid
+    scan["current_threshold"] = m.get("threshold")
+    return scan
+
+
+def get_pdp(run_id: str | None = None, feature: str | None = None) -> dict[str, Any]:
+    """PDP/ICE 产物；feature 指定则只返回单特征。"""
+    rid = _resolve_run_id(run_id)
+    path = explain_dir() / f"pdp_{rid}.json"
+    if not path.is_file():
+        raise ArtifactError(
+            "ARTIFACT_MISSING",
+            f"缺少 PDP 产物 pdp_{rid}.json，请运行 python scripts/07_explain_advanced.py",
+            {"run_id": rid},
+        )
+    bundle = load_json(path)
+    if feature:
+        item = (bundle.get("features") or {}).get(feature)
+        if item is None:
+            raise ArtifactError(
+                "VALIDATION_ERROR",
+                f"PDP 不含特征 {feature}；可选: {list((bundle.get('features') or {}).keys())}",
+                {"feature": feature},
+            )
+        return {"run_id": rid, **item}
+    return bundle
+
+
+def counterfactual_customer(
+    *,
+    customer_id: int | None = None,
+    features: dict[str, Any] | None = None,
+    feature: str | None = None,
+    target_proba: float | None = None,
+    run_id: str | None = None,
+    grid_size: int = 25,
+    max_steps: int = 8,
+) -> dict[str, Any]:
+    """反事实（模型行为口径）：单特征扰动曲线 + 可选贪心达标路径。"""
+    from digital_marketing.explain.counterfactual import (
+        greedy_counterfactual,
+        single_feature_curve,
+    )
+
+    rt = load_runtime(run_id)
+    if customer_id is not None:
+        df = lookup_customer_row(customer_id)
+    elif features:
+        df = _row_dataframe_from_features(features)
+    else:
+        raise ArtifactError("VALIDATION_ERROR", "需要 customer_id 或 features")
+    raw_cols = rt["raw_feature_cols"]
+    missing = [c for c in raw_cols if c not in df.columns]
+    if missing:
+        raise ArtifactError("VALIDATION_ERROR", f"特征缺列: {missing}", {"missing": missing})
+
+    out: dict[str, Any] = {"run_id": rt["run_id"], "customer_id": customer_id}
+    if feature:
+        out["curve"] = single_feature_curve(
+            rt["model"], rt["transformer"], df, raw_cols, feature, grid_size=grid_size
+        )
+    if target_proba is not None:
+        cfg = load_feature_config()
+        numeric = [c for c in cfg.numeric_features if c in raw_cols]
+        out["counterfactual"] = greedy_counterfactual(
+            rt["model"],
+            rt["transformer"],
+            df,
+            raw_cols,
+            numeric,
+            target_proba=float(target_proba),
+            max_steps=max_steps,
+        )
+    if not feature and target_proba is None:
+        raise ArtifactError("VALIDATION_ERROR", "需要 feature 或 target_proba 之一")
+    return out
+
+
+def simulate_budget(
+    *,
+    budget: float | None = None,
+    value_per_conversion: float = 10.0,
+    cost_per_contact: float = 4.0,
+    run_id: str | None = None,
+    export: bool = False,
+    n_points: int = 25,
+) -> dict[str, Any]:
+    """预算分配模拟（test 集现算）：期望价值排序 + K 扫描曲线。"""
+    from digital_marketing.models.classify import _predict_proba_positive
+    from digital_marketing.simulate.budget import expected_value_curve, reach_list
+
+    rt = load_runtime(run_id)
+    test_path = processed_dir() / "test.csv"
+    if not test_path.is_file():
+        raise ArtifactError("ARTIFACT_MISSING", "缺少 test.csv，请先 python scripts/01_clean_data.py")
+    test = pd.read_csv(test_path)
+    X = rt["transformer"].transform(test[rt["raw_feature_cols"]])
+    proba = _predict_proba_positive(rt["model"], X)
+    result = expected_value_curve(
+        proba,
+        value_per_conversion=value_per_conversion,
+        cost_per_contact=cost_per_contact,
+        budget=budget,
+        n_points=n_points,
+    )
+    result["run_id"] = rt["run_id"]
+    result["calibrated"] = bool(rt["meta"].get("calibrated"))
+    # 内联 Top 名单预览（最多 50 条，供前端名单表；全量走 export CSV）
+    preview_k = min(int(result.get("recommended_k") or 0), 50)
+    if preview_k > 0:
+        preview = reach_list(
+            test,
+            proba,
+            k=preview_k,
+            value_per_conversion=value_per_conversion,
+            cost_per_contact=cost_per_contact,
+        )
+        result["top_list"] = preview.round(6).to_dict(orient="records")
+    else:
+        result["top_list"] = []
+    if export and result.get("recommended_k"):
+        names = reach_list(
+            test,
+            proba,
+            k=int(result["recommended_k"]),
+            value_per_conversion=value_per_conversion,
+            cost_per_contact=cost_per_contact,
+        )
+        from digital_marketing.core.paths import ensure_dir
+
+        out_dir = ensure_dir(resolve_under_root("outputs/simulate"))
+        path = out_dir / f"reach_list_{rt['run_id']}.csv"
+        names.to_csv(path, index=False)
+        result["export_path"] = str(path)
+    return result
+
+
+def get_segments_compare() -> dict[str, Any]:
+    path = resolve_under_root("outputs/segments") / "compare.json"
+    if not path.is_file():
+        raise ArtifactError(
+            "ARTIFACT_MISSING",
+            "缺少分群对比产物 compare.json，请运行 python scripts/09_cluster_compare.py",
+        )
+    return load_json(path)
+
+
+def get_segments_projection() -> dict[str, Any]:
+    compare = get_segments_compare()
+    proj = compare.get("projection") or {}
+    return {
+        "method": proj.get("method", "pca"),
+        "explained_variance": proj.get("explained_variance") or [],
+        "n_points": proj.get("n_points") or 0,
+        "points": proj.get("points") or [],
+        "disclaimer": compare.get("disclaimer"),
     }
