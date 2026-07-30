@@ -534,11 +534,12 @@ python scripts/run_all.py
 python scripts/run_all.py --with-p1          # 分群 + 规则
 python scripts/setup_pi_cli.py               # 可选，仅 tools/pi-cli/
 pytest
-uvicorn digital_marketing.api.main:app --reload --port 8000
+uvicorn digital_marketing.api.main:app --reload --port 9800
 cd frontend && npm install && npm run dev
+# 前端开发端口 5600；API baseURL → http://127.0.0.1:9800/api/v1
 ```
 
-**实现状态摘要：** 清洗/训练/解释/P0+P1 API/七路由业务页/Local Agent/batch/项目内 Pi setup 已落地；阶段 8 为演示与文档打磨。P2 默认不做。
+**实现状态摘要：** 清洗/训练/解释/P0+P1 API/七路由/Local Agent/batch/项目内 Pi/阶段8（demo checklist、`export_paper_tables`）已落地。开发端口：API **9800**、前端 **5600**。P2 默认不做。
 
 ---
 

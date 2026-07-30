@@ -39,7 +39,7 @@
 | 项 | 选择 | 说明 |
 |----|------|------|
 | 框架 | **Vue 3** | Composition API + `<script setup>` 优先 |
-| 构建 | **Vite** | 开发端口默认 5173（可配置） |
+| 构建 | **Vite** | 开发端口 **5600**（`vite.config.ts`，可配置） |
 | UI 库 | **Element Plus** | 不引入第二套组件库（禁止再上 Ant/Naive 等） |
 | 图表 | **ECharts**（vue-echarts 或封装组件） | 统一主题变量 |
 | 路由 | Vue Router | history 模式（开发） |
@@ -115,7 +115,7 @@
 
 ### 4.1 HTTP 基础
 
-- `baseURL`：`import.meta.env.VITE_API_BASE_URL` 或默认 `http://127.0.0.1:8000/api/v1`  
+- `baseURL`：`import.meta.env.VITE_API_BASE_URL` 或默认 `http://127.0.0.1:9800/api/v1`  
 - 超时：普通 30s；`/agent/chat` 建议 120s  
 - 统一解析 envelope：`ok === true` 用 `data`；否则抛出 `error.message`（中文展示）  
 - 每个列表/详情请求失败：页面内 Alert，而不是白屏  
@@ -488,7 +488,7 @@ frontend/
 | 分群缺失 | 分群结果未生成。请运行分群脚本或完整流水线。 |
 | Agent 无 Key 降级 | 当前为模板模式：仍可调用分析工具，但自然语言编排能力有限。 |
 | Pi 未安装 | 项目内 Pi CLI 未就绪。请运行 `python scripts/setup_pi_cli.py`（不会使用你电脑上的全局 pi）。 |
-| 网络失败 | 无法连接后端，请确认 API 已在 :8000 启动。 |
+| 网络失败 | 无法连接后端，请确认 API 已在 :9800 启动。 |
 
 ---
 

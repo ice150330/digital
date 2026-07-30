@@ -30,8 +30,8 @@ class Settings:
     api_prefix: str = "/api/v1"
     cors_origins: list[str] = field(
         default_factory=lambda: [
-            "http://127.0.0.1:5173",
-            "http://localhost:5173",
+            "http://127.0.0.1:5600",
+            "http://localhost:5600",
         ]
     )
 
@@ -85,8 +85,8 @@ def get_settings() -> Settings:
         database_echo=bool(database.get("echo", False)),
         api_prefix=str(api.get("prefix", "/api/v1")),
         cors_origins=list(api.get("cors_origins") or [
-            "http://127.0.0.1:5173",
-            "http://localhost:5173",
+            "http://127.0.0.1:5600",
+            "http://localhost:5600",
         ]),
     )
     return settings

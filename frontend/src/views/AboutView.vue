@@ -16,19 +16,23 @@ import PageHeaderBar from '../components/PageHeaderBar.vue'
 python scripts/init_db.py
 python scripts/import_campaigns.py
 python scripts/run_all.py
-# 或分步：
-python scripts/01_clean_data.py
-python scripts/02_train_classify.py
-python scripts/03_explain_shap.py
-uvicorn digital_marketing.api.main:app --reload --port 8000</pre>
+python scripts/run_all.py --with-p1
+python scripts/export_paper_tables.py
+# 或分步：01_clean → 02_train → 03_explain → 04_cluster → 05_rules
+uvicorn digital_marketing.api.main:app --reload --port 9800</pre>
     </ElCard>
 
     <ElCard shadow="never" class="section-card">
       <template #header>前端</template>
       <pre class="code">cd frontend
 npm install
-npm run dev</pre>
-      <p class="muted">baseURL 使用 <code>VITE_API_BASE_URL</code>，默认 <code>http://127.0.0.1:8000/api/v1</code>。</p>
+npm run dev
+# 开发端口 5600（vite.config.ts）</pre>
+      <p class="muted">
+        baseURL 使用 <code>VITE_API_BASE_URL</code>，默认
+        <code>http://127.0.0.1:9800/api/v1</code>。演示清单见
+        <code>scripts/demo_checklist.md</code>。
+      </p>
     </ElCard>
 
     <ElCard shadow="never" class="section-card">

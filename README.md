@@ -14,7 +14,7 @@
 
 ## 当前状态（2026-07-30）
 
-**已落地（P0 + P1 主线）：**
+**已落地（P0 + P1 + 阶段 8 打磨）：**
 
 - 清洗 / 分层 split / 质量报告；E0 Dummy、E1 Logistic、E3 LightGBM；PR-AUC 主指标
 - 全局/局部解释（LightGBM `pred_contrib` 优先）
@@ -22,8 +22,10 @@
 - 前端七路由真数据页：总览 / 模型 / 客户 / 分群 / 规则 / 分析台 / 关于
 - Local Agent（白名单工具 + 五段契约 + tool_trace + 审计）；无 Key → template
 - 项目内 Pi：`python scripts/setup_pi_cli.py` → 仅 `tools/pi-cli/`（禁止全局 `pi`）
+- 演示：`scripts/demo_checklist.md`；论文表：`python scripts/export_paper_tables.py`
+- **端口：** API **9800** · 前端 **5600**
 
-**可继续打磨：** 演示 checklist 深度、README 论文表导出、阶段 8 测试/文案；**P2 默认不做**。
+**P2 默认不做**（RAG、K8s、多租户、因果 uplift 主线等）。
 
 ## 双轨存储（必读）
 
@@ -64,8 +66,8 @@ python scripts/setup_pi_cli.py
 pytest
 
 # API
-uvicorn digital_marketing.api.main:app --reload --port 8000
-# 探测：curl http://127.0.0.1:8000/api/v1/health
+uvicorn digital_marketing.api.main:app --reload --port 9800
+# 探测：curl http://127.0.0.1:9800/api/v1/health
 ```
 
 可选环境变量见 [.env.example](.env.example)（`DIGITAL_ROOT`、`DIGITAL_DATABASE_URL`、`DIGITAL_LLM_API_KEY` / `OPENAI_API_KEY` 等）。配置见 [config/](config/)。
@@ -76,8 +78,8 @@ uvicorn digital_marketing.api.main:app --reload --port 8000
 cd frontend
 npm install
 npm run dev
-# 浏览器打开 Vite 地址（默认 http://127.0.0.1:5173）
-# 需后端已在 8000 端口；baseURL 见 frontend/.env.development
+# 浏览器打开 Vite 地址（默认 http://127.0.0.1:5600）
+# 需后端已在 9800 端口；baseURL 见 frontend/.env.development
 ```
 
 ### 3. 常用脚本
@@ -94,6 +96,8 @@ npm run dev
 | `python scripts/run_all.py` | 清洗 → 训练 → 解释 |
 | `python scripts/run_all.py --with-p1` | 上式 + 分群 + 规则 |
 | `python scripts/setup_pi_cli.py` | 仅项目内 `tools/pi-cli/` Pi stub/安装 |
+| `python scripts/export_paper_tables.py` | 从 metrics 导出论文表（md+csv） |
+| `scripts/demo_checklist.md` | 8–10 分钟答辩演示脚本 |
 | `pytest` | 后端测试 |
 
 ### 4. 演示路径（约 8–10 分钟）
@@ -105,7 +109,7 @@ npm run dev
 5. **分群 / 规则** `/segments` `/rules`：Disclaimer 可见；需先 `--with-p1`  
 6. **关于** `/about`：复现命令  
 
-失败预案：Swagger `http://127.0.0.1:8000/docs`；Agent 选 template；Pi 未装时自动降级。
+失败预案：Swagger `http://127.0.0.1:9800/docs`；Agent 选 template；Pi 未装时自动降级。
 
 ## 主要 API（前缀 `/api/v1`）
 

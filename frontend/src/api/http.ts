@@ -10,7 +10,7 @@ export interface ApiEnvelope<T> {
 
 const baseURL =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ||
-  'http://127.0.0.1:8000/api/v1'
+  'http://127.0.0.1:9800/api/v1'
 
 export const http = axios.create({
   baseURL,

@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 本科毕设仓库：**数字营销转化分析 + 工具接地 AI Copilot**。
 
-**已落地：** M0 + 清洗/split + E0/E1/E3 + SHAP/P0 API + **前端七路由业务页** + **Local Agent** + **分群/规则** + **batch 预测** + **项目内 Pi setup/status**。  
-**未落地/可打磨：** 演示 checklist 深度打磨、论文表导出、P2（默认不做）。
+**已落地：** M0 + 清洗/split + E0/E1/E3 + SHAP/P0 API + **前端七路由** + **Local Agent** + **分群/规则** + **batch** + **项目内 Pi** + **阶段8**（demo checklist / 论文表导出 / 测试补强）。  
+**端口：** API **9800** · 前端 **5600**。  
+**P2 默认不做。**
 
 权威约束不在本文件重复展开：
 
@@ -59,10 +60,14 @@ pytest tests/test_agent_tools.py
 pytest tests/test_segment_rules.py
 pytest tests/test_pi_path.py
 
-# API（包入口，非 src. 前缀）
-uvicorn digital_marketing.api.main:app --reload --port 8000
+# 论文表导出 / 演示清单
+python scripts/export_paper_tables.py
+# 见 scripts/demo_checklist.md
 
-# 前端
+# API（包入口，非 src. 前缀）— 端口 9800
+uvicorn digital_marketing.api.main:app --reload --port 9800
+
+# 前端 — 端口 5600
 cd frontend && npm install && npm run dev
 cd frontend && npm run build
 ```
@@ -142,5 +147,5 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 
 ## 实现优先级提示
 
-P0/P1 主线已齐；下一优先：**阶段 8 打磨**（演示 checklist、README 从零路径、测试补强）。  
+P0/P1/阶段8 主线已齐；后续仅答辩彩排与文案微调。  
 永不砍：防泄漏叙述、PR-AUC 主指标、可运行 API、工具接地 Agent、Pi 仅 `tools/pi-cli/`。

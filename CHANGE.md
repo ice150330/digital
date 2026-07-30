@@ -26,6 +26,19 @@
 
 ## 变更日志
 
+## 2026-07-30 — 端口 9800/5600 + 阶段8 打磨
+
+- **类型：** chore / docs / test
+- **范围：** 端口配置、CORS、`scripts/demo_checklist.md`、`export_paper_tables.py`、OpenAPI/泄漏单测、README/AGENTS/DESIGN/About
+- **摘要：**
+  - API 默认演示端口 **9800**；Vite **5600**（`strictPort`）；CORS / `VITE_API_BASE_URL` / 文档全量对齐
+  - 演示清单 8–10 分钟 + 失败预案；论文表从 `leaderboard.json` 导出 md+csv
+  - 测试：特征无 CustomerID、OpenAPI 路径表、CORS 含 5600
+- **原因：** 用户指定端口；全量计划阶段 8
+- **影响：** 本地启动命令变更；旧 8000/5173 文档已替换
+- **破坏性：** 有（开发端口变更；须用新端口启服务）
+- **验证：** `python scripts/export_paper_tables.py`；`pytest`；`npm run build`
+
 ## 2026-07-30 — docs：同步 README/AGENTS/计划至 P0+P1 终态
 
 - **类型：** docs
