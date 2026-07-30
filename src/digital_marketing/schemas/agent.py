@@ -24,6 +24,7 @@ class ChatData(BaseModel):
     tool_trace: list[dict[str, Any]] = Field(default_factory=list)
     latency_ms: float | None = None
     pi_status: dict[str, Any] | None = None
+    pi_fallback: bool = Field(default=False, description="默认 runtime=pi 但降级 local/template 时为 True")
 
 
 class RuntimeRequest(BaseModel):
@@ -42,3 +43,31 @@ class PiStatusData(BaseModel):
     code: str | None = None
     message: str | None = None
     hint: str | None = None
+    # 阶段9：Pi 编排中枢
+    is_stub: bool = False
+    default_runtime: str | None = None
+    skills: list[str] = Field(default_factory=list)
+    skills_detail: list[dict[str, Any]] = Field(default_factory=list)
+    sessions_count: int = 0
+    fallback_reason: str | None = None
+
+
+class ReportRequest(BaseModel):
+    title: str = "数字营销转化分析报告"
+    sections: list[str] | None = None
+
+
+class ReportData(BaseModel):
+    report_path: str
+    title: str
+    n_sections: int
+    n_sections_ok: int
+    digest: str
+    tool_trace: list[dict[str, Any]] = Field(default_factory=list)
+    disclaimer: str
+
+
+class AuditRecentData(BaseModel):
+    items: list[dict[str, Any]]
+    n: int
+    note: str = "按时间倒序；字段见 AGENTS.md §9.4 审计约定"

@@ -1,6 +1,6 @@
-# Agent / Copilot（P0 默认 local；Pi 待阶段 7）
+# Agent / Copilot（默认 pi 编排中枢；stub/未安装自动降级 local 并在响应标注）
 
-runtime: local  # local | pi | template
+runtime: pi  # pi | local | template
 
 llm:
   # Key 仅环境变量，例如 DIGITAL_LLM_API_KEY / OPENAI_API_KEY
@@ -12,6 +12,9 @@ pi:
   # 仅项目内路径；禁止 PATH / which pi
   executable: tools/pi-cli/node_modules/.bin/pi
   # Windows 可能为 .cmd，由 runtime 解析
+  skills_dir: src/digital_marketing/agent/skills
+  session_dir: outputs/agent_sessions
+  timeout_sec: 180
 
 audit:
   log_dir: outputs/agent_logs
@@ -31,3 +34,10 @@ tools:
     - assign_cluster
     - top_association_rules
     - strategy_brief
+    # 阶段9 新增
+    - compare_experiments
+    - get_calibration_summary
+    - get_lift_table
+    - simulate_budget
+    - counterfactual_explain
+    - generate_analysis_report

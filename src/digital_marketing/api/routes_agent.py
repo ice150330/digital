@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
+from digital_marketing.agent import audit as agent_audit
 from digital_marketing.agent import service as agent_service
 from digital_marketing.agent.pi_runtime import pi_status
+from digital_marketing.agent.report import generate_analysis_report
 from digital_marketing.api.errors import envelope_error
 from digital_marketing.core.paths import project_root
 from digital_marketing.schemas.agent import (
+    AuditRecentData,
     ChatData,
     ChatRequest,
     PiStatusData,
+    ReportData,
+    ReportRequest,
     RuntimeData,
     RuntimeRequest,
 )
@@ -87,3 +92,44 @@ def agent_pi_status(request: Request):
     raw = pi_status()
     data = PiStatusData.model_validate(raw)
     return Envelope[PiStatusData](ok=True, data=data, error=None, request_id=request_id)
+
+
+@router.get("/agent/audit/recent", response_model=Envelope[AuditRecentData])
+def agent_audit_recent(request: Request, limit: int = Query(default=50, ge=1, le=500)):
+    """最近审计行（outputs/agent_logs/*.jsonl 尾部，时间倒序）。"""
+    request_id = getattr(request.state, "request_id", "unknown")
+    items = agent_audit.list_recent(limit=limit)
+    data = AuditRecentData(items=items, n=len(items))
+    return Envelope[AuditRecentData](ok=True, data=data, error=None, request_id=request_id)
+
+
+@router.post("/agent/report", response_model=Envelope[ReportData])
+def agent_report(body: ReportRequest, request: Request):
+    """一键生成分析报告（编排只读工具 → markdown 落盘 outputs/reports/）。"""
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        raw = generate_analysis_report(title=body.title, sections=body.sections)
+        # 报告生成也入审计
+        agent_audit.append_audit(
+            {
+                "request_id": request_id,
+                "session_id": None,
+                "runtime": "report",
+                "user_message": f"generate_report title={body.title}",
+                "tool_calls": [
+                    {"tool": t.get("tool"), "ok": t.get("ok")} for t in raw.get("tool_trace", [])
+                ],
+                "reply_digest": raw.get("digest", "")[:500],
+                "latency_ms": None,
+                "error": None,
+            }
+        )
+        data = ReportData.model_validate(raw)
+        return Envelope[ReportData](ok=True, data=data, error=None, request_id=request_id)
+    except Exception as e:  # noqa: BLE001
+        return envelope_error(
+            request,
+            code="AGENT_TOOL_FAILED",
+            message=f"报告生成失败: {e}",
+            status_code=500,
+        )
