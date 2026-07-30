@@ -26,6 +26,24 @@
 
 ## 变更日志
 
+## 2026-07-30 — 阶段9：算法深化 + Pi 编排中枢（红线内拉满）
+
+- **类型：** feat
+- **范围：** `models/`、`explain/`、`segment/`、`simulate/`（新）、`agent/`、`api/`、`schemas/`、`services/artifacts.py`、`config/{model,agent}.yaml`、`scripts/06–09`、`agent/skills/`、`frontend/`、`tests/`
+- **摘要：**
+  - **训练深化（W9a）：** 实验矩阵扩至 E0–E8（E2 默认树、E4 SMOTE、E5 +ConversionRate 泄漏消融、E6 去质量 flag 消融、E7 Stacking 5-fold OOF、E8 Platt/Isotonic 校准 valid 择优）；每 run 落 CV 5-fold（仅 train）、test bootstrap 95% CI、PR/ROC 曲线、lift 十分位、成本敏感阈值扫描；per-run transformer；消融 run 代码级排除默认 run 参选
+  - **分析深化（W9b）：** PDP/ICE、反事实（单特征曲线 + 贪心最小改动，强制「模型行为≠因果」disclaimer）、多算法分群（KMeans/GMM/Agglomerative × K + silhouette/CH/BIC + bootstrap ARI 稳定性 + PCA 投影 + z-score 自动画像名）、预算模拟器（期望值口径，K 扫描 + 推荐 K + Top-K 名单 CSV）
+  - **API + 工具（W9c）：** +10 端点（curves/calibration/lift/threshold-scan/pdp/counterfactual/segments compare+projection/simulate budget/audit recent/agent report）；+6 Agent 工具（compare_experiments、get_calibration_summary、get_lift_table、simulate_budget、counterfactual_explain、generate_analysis_report），五处联动
+  - **Pi 编排中枢（W9d）：** `agent.yaml` 默认 `runtime: pi`；stub 检测（读文件头 pi-stub 标记）+ 明确降级 local（响应 `pi_fallback` + open_questions 标注）；skills ×7（frontmatter + 编排步骤 + 口径红线）；一键分析报告落盘 `outputs/reports/analysis_<ts>.md`；audit.py 真正消费 agent.yaml
+  - **前端（W9e）：** 路由 7→9（+`/simulate` `/pi`）；`/models` 全图化（CV/CI/Brier 列 + PR/ROC 双联 + 校准 + 混淆热力 + lift + 阈值-成本滑块）；`/customers` 反事实面板；`/segments` 自动画像名 + 稳定性徽章 + PCA 散点 + 多算法对比；`/agent` 五段契约渲染 + RuntimeBadge/ToolTracePanel 组件化；新组件 ×10；`chartTheme.ts` 统一图表色
+  - **收尾（W9f）：** `run_all.py --full` 串联 06/07/08/09；论文表导出扩 CV/CI/Brier/ablation 列；AGENTS/DESIGN/README/CLAUDE 同步
+- **原因：** 用户要求 8k 数据用到极致的「最复杂、算法最丰富」系统并强化 Pi runtime 核心地位；已确认「红线内拉满（不做 uplift 因果主线）+ Pi 编排中枢」两项决策
+- **影响：** 实验结论更丰富也更诚实（E5 泄漏消融 roc 0.811 vs E3 0.792 证明泄漏增益有限；E8 校准 ECE 0.1126→0.0193）；默认 run 仍为 E2_lightgbm_default（解释友好）；答辩可演示预算模拟与一键报告
+- **破坏性：** 有（`agent.yaml` 默认 runtime 由 local 改为 pi；stub/未安装时行为为降级 local 并标注，与旧 local 行为等价）
+- **关联：** 计划 `~/.claude/plans/breezy-snuggling-teacup.md`（阶段9 六波次）
+- **验证：** `pytest` 86 passed（新增 test_train_full/test_simulate/test_counterfactual/test_api_advanced/test_agent_runtime 等）；`npm run build` 通过；`scripts/06/07/08/09` 全量跑通落盘；`export_paper_tables.py` 9 行
+- **未做：** uplift 因果主线、SHAP interaction（NumPy2 环境冲突史，回退跳过）、真 Pi 实装联调（本机 stub；真装路径已有 --help 探测分支）
+
 ## 2026-07-30 — 包 docstring 去占位残留
 
 - **类型：** chore / docs

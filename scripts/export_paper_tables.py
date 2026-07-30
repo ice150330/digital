@@ -22,10 +22,16 @@ COLS = [
     "exp_id",
     "model_name",
     "pr_auc",
+    "cv_pr_auc_mean",
+    "cv_pr_auc_std",
+    "pr_auc_ci_low",
+    "pr_auc_ci_high",
     "roc_auc",
     "f1",
+    "brier",
     "accuracy",
     "threshold",
+    "ablation",
 ]
 
 
@@ -44,6 +50,8 @@ def _load_leaderboard() -> list[dict]:
 def _fmt(v: object, digits: int = 4) -> str:
     if v is None:
         return "—"
+    if isinstance(v, bool):
+        return "是" if v else ""
     if isinstance(v, float):
         return f"{v:.{digits}f}"
     return str(v)
@@ -75,9 +83,11 @@ def to_markdown(rows: list[dict]) -> str:
             "",
             "## 口径备注",
             "",
-            "1. 阈值在 valid 搜索，test 仅评估一次。",
-            "2. 默认部署 run：非 Dummy 中 PR-AUC 最高，近并列偏好树/LightGBM。",
-            "3. 复现：`python scripts/run_all.py` 后重新执行本脚本。",
+            "1. 阈值在 valid 搜索，test 仅评估一次；CV 仅在 train 上 5-fold。",
+            "2. 默认部署 run：非 Dummy 非消融中 PR-AUC 最高，近并列偏好树/LightGBM。",
+            "3. `cv_pr_auc_mean/std` 为 train 上 5-fold；`pr_auc_ci_low/high` 为 test bootstrap 1000 次 95% CI。",
+            "4. `ablation=是` 的 run（E5 含 ConversionRate / E6 去质量 flag）仅作消融对照，不参选默认 run。",
+            "5. 复现：`python scripts/run_all.py --with-p1 --full` 后重新执行本脚本。",
             "",
         ]
     )

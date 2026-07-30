@@ -3,7 +3,7 @@
 > **地位：** 本仓库**前端（SPA）**的详细设计权威文档。  
 > **不在本文范围：** 系统架构、数据/ML 协议、FastAPI 路由实现、Agent/Pi 后端逻辑 → 一律见 **`AGENTS.md`**。  
 > **配套：** 范围见 `docs/plans/`；变更见 `CHANGE.md`。  
-> **版本：** v0.2.0（2026-07-30）— 收窄为前端专用；与 AGENTS 文档职责拆分。
+> **版本：** v0.3.0（2026-07-30）— 阶段9：9 路由；模型实验室全图化；新增预算模拟页与 Pi 编排中枢页。
 
 ---
 
@@ -64,11 +64,13 @@
 | 路由 | 名称 | 优先级 | 主要内容 |
 |------|------|--------|----------|
 | `/` | 总览 Dashboard | P0 | KPI、转化分布、质量告警、数据摘要 |
-| `/models` | 模型实验室 | P0 | 模型对比表、PR/ROC 说明、阈值、Dummy 对照 |
-| `/customers` | 客户洞察 | P0 | 查 ID/表单特征 → 概率、标签、SHAP |
-| `/segments` | 分群画像 | P1 | 簇列表、画像、策略卡片、事后转化率 |
+| `/models` | 模型实验室 | P0 | E0–E8 对比表（CV/CI/Brier）、PR/ROC、校准、混淆矩阵、lift、阈值-成本 |
+| `/customers` | 客户洞察 | P0 | 查 ID/表单特征 → 概率、标签、SHAP、反事实（模型行为口径） |
+| `/segments` | 分群画像 | P1 | 簇列表、自动画像名、PCA 投影、多算法对比、稳定性徽章 |
 | `/rules` | 关联规则 | P1 | 规则表、Lift 筛选、免责声明 |
-| `/agent` | AI 分析台 | P0 | 对话、runtime 徽章、tool_trace |
+| `/simulate` | 预算模拟 | 阶段9 | 参数表单、期望收益曲线、推荐 K、Top 名单、CSV 导出 |
+| `/agent` | AI 分析台 | P0 | 对话、runtime 徽章、五段契约、tool_trace |
+| `/pi` | Pi 编排中枢 | 阶段9 | runtime 状态、skills 列表、一键报告、审计表格、会话回放 |
 | `/about` | 关于与复现 | P0 | 启动命令、数据出处、AI 使用说明、链接 AGENTS |
 
 未实现的 P1 页：导航可显示但内容为「即将推出 / 请先运行 scripts」空态，**不要**死链 404 吓退演示。
@@ -86,7 +88,9 @@
 │ 客户         │                                               │
 │ 分群         │                                               │
 │ 规则         │                                               │
+│ 预算模拟     │                                               │
 │ AI 分析台    │                                               │
+│ Pi 中枢      │                                               │
 │ 关于         │                                               │
 └──────────────┴──────────────────────────────────────────────┘
 │ AppFooter（可选）：免责声明一行 + 文档链接                      │
@@ -243,8 +247,16 @@
 | `QualityIssueList` | 质量问题计数与说明 |
 | `DisclaimerBanner` | 相关非因果固定文案 |
 | `AgentMessageList` | 气泡列表 |
-| `ToolTracePanel` | 工具名、参数摘要、成功/失败、耗时 |
-| `RuntimeBadge` | local / pi / template |
+| `ToolTracePanel` | 工具名、参数摘要、成功/失败、耗时（折叠面板） |
+| `RuntimeBadge` | pi / local / template + stub/降级原因 tooltip |
+| `RocPrCurveChart` | PR / ROC 双联曲线（左 PR 右 ROC，随机基线虚线） |
+| `CalibrationChart` | 校准曲线（完美对角线 + before/after 双色） |
+| `ConfusionHeatmap` | 2×2 混淆矩阵热力（x=预测 y=实际） |
+| `LiftChart` | 十分位 capture_rate 柱 + lift 折线（右轴） |
+| `ThresholdScanChart` | P/R/F1 三线 + 期望成本右轴 + 当前/成本最优/选中三档 markLine |
+| `ScatterPcaChart` | PCA 2D 散点（按簇着色 + 自动画像名图例） |
+| `BudgetCurveChart` | 期望净收益/毛收益/转化数曲线 + 推荐 K markLine |
+| `CounterfactualCurveChart` | 单特征扰动 proba 曲线 + 当前样本点 + 目标线 |
 | `EmptyState` | 无数据时引导运行后端脚本 |
 | `ErrorState` | 展示后端 `error.message` + 重试 |
 
@@ -286,10 +298,13 @@
 | 页面 | 图表 | 备注 |
 |------|------|------|
 | 总览 | 转化 0/1 占比饼/环；渠道柱状 | 饼图类别 ≤5；多类改条形 |
-| 模型 | PR 曲线（若后端提供点）；指标柱状对比 | 无曲线数据则只做表+柱 |
-| 客户 | SHAP 水平条 | 按绝对值排序可切换 |
-| 分群 | 簇大小柱状；雷达/并列条画像 | 雷达维数 ≤8 |
+| 模型 | PR/ROC 双联曲线；校准曲线；混淆热力；lift 柱+折线；阈值-成本多线 | run 下拉切换；阈值滑块联动 |
+| 客户 | SHAP 水平条；反事实单特征曲线 | 按绝对值排序可切换 |
+| 分群 | PCA 2D 散点；簇大小柱状；多算法对比表 | 雷达维数 ≤8 |
 | 规则 | 一般用表；Lift 可用条形 | 避免强行 3D |
+| 模拟 | 期望收益曲线（净/毛/转化数） | 推荐 K markLine |
+
+图表颜色统一从 `utils/chartTheme.ts` 常量派生（与 tokens.css 对齐），禁止组件内散落硬编码 hex。
 
 ### 8.3 禁止
 
@@ -340,12 +355,13 @@
 
 **必须有：**
 
-- 多模型对比表，**PR-AUC 列优先高亮**  
-- Dummy 或多数类基线行  
-- 当前 `run_id` / 模型名  
-- 阈值说明（文案级即可）  
-
-**可选：** PR 曲线图（有数据再上）。
+- E0–E8 对比表，**PR-AUC 列优先高亮**；Dummy 行 tag；**E5/E6 消融行标「消融·不作默认」**  
+- 列：PR-AUC、CV 5-fold 均值±std、95% CI（bootstrap）、ROC-AUC、F1、Brier、Accuracy（仅对照）、阈值  
+- run 下拉联动：PR/ROC 双联曲线、混淆矩阵热力、lift 图  
+- 阈值-成本分析：多线图 + 滑块联动 P/R/F1/期望成本（当前/成本最优/选中三档 markLine）  
+- 校准曲线（E8）：完美对角线 + before/after 双色  
+- 全局 SHAP 条形  
+- 顶部口径文案：CI 重叠不宣称更优；消融不参选默认  
 
 ### 10.3 客户洞察 `/customers`
 
@@ -355,10 +371,15 @@
 - 输出：概率、标签、阈值、run_id  
 - SHAP Top 特征图或表  
 - 预置「样例填充」按钮（答辩用，数据来自后端或约定 fixture）  
+- **反事实面板：** 扰动特征下拉（数值列）+ 目标 proba → 单特征 proba 曲线（当前样本点 + 目标线）+ 达标步骤表（特征/from/to/proba_after）+ 强制 disclaimer（模型行为口径，非因果非投放建议）  
+- 批量预测（上限 200）  
 
 ### 10.4 分群 `/segments`
 
-- 簇卡片：ID、占比、事后转化率、3–5 个显著特征  
+- 簇表：ID、**自动画像名**、占比、事后转化率、3–5 个显著特征  
+- **稳定性徽章：** bootstrap ARI 均值±std（≥0.75 绿 / ≥0.5 蓝 / 否则黄）  
+- PCA 2D 散点（按簇着色，图例带自动画像名）  
+- 多算法对比表（KMeans/GMM/Agglomerative × K；silhouette/CH/BIC；当前主分群行高亮）  
 - 策略文案区必须带免责声明  
 - 无产物：EmptyState 提示跑分群脚本  
 
@@ -374,9 +395,11 @@
 
 - 多轮消息列表  
 - 发送框 + 加载中状态  
-- **Runtime 展示与切换**（切换调后端，失败提示）  
-- 每条助手消息可展开 **tool_trace**  
-- 建议「示例问题」chips（3–5 个）降低冷启动  
+- **Runtime 展示与切换**（默认 pi；切换调后端，失败提示；stub/降级显示原因）  
+- 每条助手消息可展开 **tool_trace**（ToolTracePanel 组件）  
+- **五段契约完整渲染：** observed_facts / inferences / recommendations / open_questions / tool_trace  
+- `pi_fallback=true` 时显示「Pi 降级」警告 tag  
+- 建议「示例问题」chips（含实验对比/校准/预算/反事实新工具例）降低冷启动  
 
 **交互细节：**
 
@@ -390,6 +413,27 @@
 - 数据来源链接/说明  
 - 文档入口：`AGENTS.md` / 本文件 / 计划书路径说明  
 - AI 使用说明摘要（毕设诚信）  
+
+### 10.8 预算模拟 `/simulate`
+
+**必须有：**
+
+- 参数表单：单客转化价值、单次触达成本、预算上限（可空）+ 盈亏平衡 proba 回显  
+- KPI 行：推荐 K、期望净收益、期望转化数、评估人群（test n + run_id）  
+- 期望收益曲线（BudgetCurveChart：净收益主线 + 毛收益/转化数虚线 + 推荐 K markLine）  
+- Top 名单预览表（≤50：rank/CustomerID/proba/期望价值）+ 「导出名单 CSV」按钮（显示落盘路径）  
+- 固定 disclaimer：期望值口径，非因果收益承诺  
+
+### 10.9 Pi 编排中枢 `/pi`
+
+**必须有：**
+
+- Runtime 状态卡：默认 runtime、可执行文件、stub/真实安装 tag、降级原因、会话数（RuntimeBadge）  
+- Skills 列表（名称 + 描述，来自 `/agent/pi/status` 的 skills_detail）  
+- 一键报告：标题输入 + 生成按钮 → n_sections_ok/n_sections、落盘路径、digest 预览、tool_trace  
+- 审计表格（最近 N 条：时间/runtime/用户消息/工具/会话/耗时）  
+- 会话回放：输入 session_id → 展示完整会话 JSON  
+- 口径文案：Pi 仅 `tools/pi-cli/`，禁止全局回退  
 
 ---
 
@@ -524,6 +568,7 @@ frontend/
 |------|------|------|
 | v0.1.0 | 2026-07-30 | 初版（含全栈设计，已废止该形态） |
 | v0.2.0 | 2026-07-30 | **收窄为前端专用**；架构/后端迁入 AGENTS.md |
+| v0.3.0 | 2026-07-30 | 阶段9：9 路由（+`/simulate` `/pi`）；模型实验室全图化（CV/CI/Brier 列 + 5 类评估图 + 校准）；客户页反事实；分群页对比/投影/稳定性；Agent 五段渲染 + RuntimeBadge/ToolTracePanel 组件化；chartTheme 统一图表色 |
 
 ---
 

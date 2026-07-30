@@ -8,7 +8,7 @@
 > - **`CHANGE.md`：** 每次有意义修改的人工记录  
 > **冲突优先级：** 硬性禁止项以本文件为准；前端视觉/交互以 `DESIGN.md` 为准；范围以计划书为准。  
 > **语言：** 用户可见说明、文档、注释（非标识符）用**中文**。  
-> **最后同步：** 2026-07-30（v0.4：P0/P1 主线已落地 — 业务页、Agent、分群/规则、batch、项目内 Pi）
+> **最后同步：** 2026-07-30（v0.5：阶段9 算法深化 — E0–E8 全矩阵 + CV/CI/校准/曲线 + PDP/反事实 + 多算法分群 + 预算模拟；Pi 为默认编排 runtime）
 
 ---
 
@@ -136,8 +136,8 @@
 | 层 | 职责 | 位置 |
 |----|------|------|
 | 接口层 | HTTP、校验、CORS、OpenAPI | `src/digital_marketing/api/` |
-| 领域内核 | 清洗、特征、训练、解释、分群、规则 | `data/ features/ models/ explain/ segment/ rules/` |
-| Agent | 工具、runtime、grounding、审计 | `agent/` |
+| 领域内核 | 清洗、特征、训练、解释、分群、规则、模拟 | `data/ features/ models/ explain/ segment/ rules/ simulate/` |
+| Agent | 工具、runtime、grounding、审计、skills、报告 | `agent/` |
 | 基础设施 | 配置、路径、种子、日志、IO | `core/` |
 | 表现层 | SPA | `frontend/`（约束见 DESIGN） |
 
@@ -151,6 +151,7 @@
 | `explain` | models 产物 | 编造 shap |
 | `segment` | features（无标签拟合） | 用 Conversion 训练簇 |
 | `rules` | 分箱特征 | 宣称因果 |
+| `simulate` | models 产物 + test 集 | 宣称因果收益、训练期使用 |
 | `agent.tools` | 内核门面/产物只读 | 任意 shell |
 | `agent.pi_runtime` | 仅 tools/pi-cli 可执行文件 | `which pi` / PATH 回退 |
 | `api` | 各服务门面 | 内嵌超长训练循环 |
@@ -162,18 +163,20 @@ src/digital_marketing/
   core/
   data/          # load, clean, quality, split
   features/
-  models/        # classify, imbalance, registry, evaluate
-  explain/
-  segment/
+  models/        # classify, imbalance, metrics, calibrate, ensemble
+  explain/       # shap, pdp, counterfactual
+  segment/       # cluster, compare
   rules/
+  simulate/      # budget（期望值口径）
   agent/
     tools/
     prompts/
-    skills/      # 项目内 Pi --skill
+    skills/      # 项目内 Pi --skill（7 个 SKILL.md）
     local_runtime.py
     pi_runtime.py
     grounding.py
     audit.py
+    report.py
     service.py
   api/
     main.py
@@ -213,12 +216,19 @@ raw CSV (data/, 只读真相源)
 |------|------|
 | `outputs/db/app.db` | **主数据轨**：营销活动行（可重建） |
 | `outputs/models/<run_id>/model.*` | 推理 |
-| `outputs/models/<run_id>/metrics.json` | 评估/论文/前端 |
+| `outputs/models/<run_id>/transformer.joblib` | per-run 特征管道（E5/E6/E7 等变体 run；缺省回退全局） |
+| `outputs/models/<run_id>/metrics.json` | 评估/论文/前端（含 cv/ci/pr_curve/roc_curve/lift_deciles/threshold_scan） |
 | `outputs/models/<run_id>/feature_schema.json` | 推理校验 |
 | `outputs/models/<run_id>/config_snapshot.yaml` | 复现 |
-| `outputs/metrics/model_comparison.json` | 多模型对比 |
+| `outputs/metrics/leaderboard.json` | 实验矩阵对比（E0–E8） |
+| `outputs/metrics/calibration_<run_id>.json` | E8 校准前后对比 |
+| `outputs/explain/pdp_<run_id>.json` | PDP/ICE 网格（Top 特征） |
 | `outputs/segments/summary.json` | 分群 |
+| `outputs/segments/compare.json` | 多算法分群对比 + 稳定性 + PCA 投影 + 自动画像名 |
+| `outputs/simulate/budget_curve_<run_id>.json` | 预算模拟默认参数曲线 |
+| `outputs/simulate/reach_list_<run_id>.csv` | Top-K 触达名单 |
 | `outputs/rules/top_rules.json` | 规则 |
+| `outputs/reports/analysis_*.md` | Agent 一键分析报告 |
 | `outputs/agent_logs/*.jsonl` | 审计 |
 | `outputs/agent_sessions/` | Pi/会话 |
 
@@ -308,19 +318,25 @@ outputs/db/            # SQLite app.db（主数据轨，可重建）
 
 ### 8.2 实验矩阵
 
-| ID | 内容 |
-|----|------|
-| E0 | Dummy 多数类 |
-| E1 | Logistic + class_weight |
-| E2 | RF / LightGBM 默认 |
-| E3 | 树模型 + 不平衡权重（主候选） |
-| E4 | E3 + SMOTE（仅 train） |
-| E5 | ± ConversionRate |
-| E6 | ± 质量 flag |
+| ID | 内容 | 备注 |
+|----|------|------|
+| E0 | Dummy 多数类 | 对照基线 |
+| E1 | Logistic + class_weight | |
+| E2 | RF / LightGBM 默认（无 class_weight） | 当前默认 run 出自此类 |
+| E3 | 树模型 + 不平衡权重（主候选） | |
+| E4 | E3 + SMOTE（仅 train；imblearn 缺失则跳过并声明） | |
+| E5 | E3 + ConversionRate（泄漏消融） | **永不参选默认 run** |
+| E6 | E3 − 质量 flag（消融） | **永不参选默认 run** |
+| E7 | Stacking：LGBM+RF+LR → meta LR（train 5-fold OOF） | 解释降级为 permutation |
+| E8 | E3 + 概率校准（Platt/Isotonic valid 择优） | 校准器仅 valid fit |
+
+训练入口：`scripts/02_train_classify.py` 只跑基础实验；`scripts/06_train_full.py` 跑全矩阵。  
+**默认 run 保护：** `services/artifacts.pick_default_run_id` 排除 Dummy 与消融 run（meta.feature_schema 含 ConversionRate 或 ablation 标记），0.01 窗口近并列偏好纯树模型（stacking 不享树加成）。  
+**per-run transformer：** 特征变体 run 目录存 `transformer.joblib`，`load_runtime` 优先读取，回退全局 processed。
 
 ### 8.3 主指标顺序
 
-1. **PR-AUC**  
+1. **PR-AUC**（test bootstrap 1000 次 95% CI；train 5-fold CV 均值±std）  
 2. **ROC-AUC**  
 3. F1 / 阈值后 Precision·Recall  
 4. 混淆矩阵  
@@ -328,11 +344,16 @@ outputs/db/            # SQLite app.db（主数据轨，可重建）
 
 阈值：valid 搜索 → test **一次**评估。LightGBM 优先，装不上则 RF。
 
-### 8.4 SHAP / 分群 / 规则
+**增强评估（每 run 落盘）：** `pr_curve`/`roc_curve`（≤200 点抽稀）、`lift_deciles`（十分位 capture/lift）、`threshold_scan`（期望成本 = FP×1 + FN×5，可配）、E8 另落 `calibration_<run_id>.json`（brier/log_loss/ECE 前后对比）。**CI 重叠的 run 之间不得宣称「更优」。**
 
-- SHAP：TreeExplainer 优先；全局 Top-K + 局部列表；文案不说「必然导致」。  
-- 分群：K-Means 主；**训练不含 Conversion**；事后画像转化率。  
+### 8.4 SHAP / 分群 / 规则 / PDP / 反事实 / 模拟
+
+- SHAP：TreeExplainer 优先（stacking 回退 permutation 并标注 method）；全局 Top-K + 局部列表；文案不说「必然导致」。  
+- PDP/ICE：主 run Top 特征网格（`explain/pdp.py`），原始特征空间扰动。  
+- 反事实（`explain/counterfactual.py`）：单特征扰动曲线 + 贪心最小改动路径；**仅描述模型行为（敏感性分析），强制 disclaimer，不构成因果效应或投放建议**。  
+- 分群：K-Means 主；**训练不含 Conversion**；事后画像转化率。多算法对比（KMeans/GMM/Agglomerative × K）+ bootstrap ARI 稳定性 + PCA 投影 + 规则化自动画像名（z-score Top2，无 LLM）。  
 - 规则：分箱 + mlxtend；support/confidence/lift；声明相关非因果。  
+- 预算模拟（`simulate/budget.py`）：test 集 proba × 单客价值 − 触达成本 → 期望价值排序 + K 扫描；**期望值口径，非因果收益承诺**。  
 
 ---
 
@@ -341,8 +362,10 @@ outputs/db/            # SQLite app.db（主数据轨，可重建）
 ### 9.1 原则
 
 - **Host-executed tools：** 工具在本仓库 Python 执行；LLM/Pi 只编排与叙述。  
-- 默认 runtime：`local`；可切 `pi`；无 Key：`template` 降级。  
+- 默认 runtime：**`pi`**（编排中枢）；stub/未安装/失败时**明确降级 local 并在响应 `pi_fallback` 与 `open_questions` 标注**；无 Key 可 `template`。  
 - 输出字段：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace`。  
+- skills 生态：`agent/skills/<name>/SKILL.md` ×7（frontmatter name/description + 编排步骤 + 口径红线）；模板模式复用同套编排，保证无 Key 可演示。  
+- 一键报告：`generate_analysis_report` 编排工具 → markdown 落盘 `outputs/reports/analysis_<ts>.md`，数字全部来自工具结果，尾部固定「口径与限制」节。  
 
 ### 9.2 工具注册表
 
@@ -357,9 +380,14 @@ outputs/db/            # SQLite app.db（主数据轨，可重建）
 | `explain_global` / `explain_customer` | P0 |
 | `segment_summary` / `assign_cluster` | P1 |
 | `top_association_rules` / `strategy_brief` | P1 |
-| `compare_experiments` | P2 |
+| `compare_experiments` | 阶段9 |
+| `get_calibration_summary` | 阶段9 |
+| `get_lift_table` | 阶段9 |
+| `simulate_budget` | 阶段9 |
+| `counterfactual_explain` | 阶段9 |
+| `generate_analysis_report` | 阶段9 |
 
-新增工具：更新本节 + 单测 + 审计 + CHANGE。
+新增工具：更新本节 + `tools/catalog.py` 实现 + REGISTRY 注册 + plan_tools 关键词 + grounding 分支 + `agent.yaml` whitelist + 单测 + CHANGE（五处联动）。
 
 ### 9.3 项目内 Pi CLI
 
@@ -428,21 +456,33 @@ PiRuntime.run()
 | GET | `/models/metrics/{run_id}` | P0 |
 | POST | `/models/predict` | P0 |
 | POST | `/models/predict/batch` | P1（条数上限 200） |
+| GET | `/models/curves` | 阶段9（pr/roc 点 + CI） |
+| GET | `/models/calibration` | 阶段9（E8 校准前后对比） |
+| GET | `/models/lift` | 阶段9（十分位 lift 表） |
+| GET | `/models/threshold-scan` | 阶段9（成本敏感阈值扫描） |
 | GET | `/explain/global` | P0 |
 | POST | `/explain/customer` | P0 |
+| GET | `/explain/pdp` | 阶段9（PDP/ICE 网格） |
+| POST | `/explain/counterfactual` | 阶段9（模型行为口径，强制 disclaimer） |
 | GET | `/segments` | P1 |
 | POST | `/segments/assign` | P1 |
+| GET | `/segments/compare` | 阶段9（多算法对比 + 稳定性 + 自动画像名） |
+| GET | `/segments/projection` | 阶段9（PCA 2D 投影） |
 | GET | `/rules` | P1 |
+| POST | `/simulate/budget` | 阶段9（期望值口径，`export=true` 落 CSV） |
 | POST | `/agent/chat` | P0 |
 | GET | `/agent/sessions/{session_id}` | P0 |
 | POST | `/agent/runtime` | P1 |
-| GET | `/agent/pi/status` | P1 |
+| GET | `/agent/pi/status` | P1（含 is_stub/default_runtime/skills/fallback_reason） |
+| GET | `/agent/audit/recent` | 阶段9（审计行倒序，limit 1–500） |
+| POST | `/agent/report` | 阶段9（一键分析报告落盘） |
 
 ### 10.3 关键响应字段
 
 - **预测：** `proba`, `label`, `threshold`, `run_id`, `model_name`  
 - **解释：** `top_features[{name, feature_value, shap_value}]`, `method`, `run_id`  
-- **Agent：** 五段字段 + `tool_trace` + `session_id` + `runtime`  
+- **Agent：** 五段字段 + `tool_trace` + `session_id` + `runtime` + `pi_fallback`（Pi 降级标注）  
+- **模拟：** `curve[{k, expected_net, ...}]` + `recommended_k` + `top_list`（≤50 预览）+ `disclaimer`  
 
 ### 10.4 错误码示例
 
@@ -476,7 +516,7 @@ PiRuntime.run()
 **agent.yaml 示意：**
 
 ```yaml
-runtime: local
+runtime: pi            # 默认编排中枢；stub/未安装明确降级 local 并标注
 llm:
   provider: deepseek
   model: deepseek-chat
@@ -484,13 +524,14 @@ llm:
   timeout_sec: 60
 pi:
   executable: tools/pi-cli/node_modules/.bin/pi
-  skills_dir: src/digital_marketing/agent/skills
+  skills_dir: agent/skills
   session_dir: outputs/agent_sessions
   timeout_sec: 180
 tools:
-  allowlist: []
+  whitelist: []        # 与工具注册表同步（五处联动）
 audit:
-  path: outputs/agent_logs
+  log_dir: outputs/agent_logs
+  session_dir: outputs/agent_sessions
 ```
 
 `pi.executable` **禁止**配置成无路径的裸 `pi`。
@@ -523,23 +564,25 @@ audit:
 
 禁止虚假完成：测试失败不称完成；跳过步骤须声明。
 
-**复现命令（P0/P1 主线）：**
+**复现命令（P0/P1/阶段9 主线）：**
 
 ```text
 pip install -e ".[dev]"
-# 可选关联规则等：pip install -e ".[dev,ml]"
+# 可选 SMOTE 等：pip install -e ".[dev,ml]"
 python scripts/init_db.py
 python scripts/import_campaigns.py
 python scripts/run_all.py
-python scripts/run_all.py --with-p1          # 分群 + 规则
-python scripts/setup_pi_cli.py               # 可选，仅 tools/pi-cli/
+python scripts/run_all.py --with-p1            # 分群 + 规则
+python scripts/run_all.py --with-p1 --full     # 全量矩阵 E0–E8 + PDP + 预算模拟 + 分群对比
+python scripts/setup_pi_cli.py                 # 可选，仅 tools/pi-cli/
+python scripts/export_paper_tables.py          # 论文表（CV/CI/Brier 列）
 pytest
 uvicorn digital_marketing.api.main:app --reload --port 9800
 cd frontend && npm install && npm run dev
 # 前端开发端口 5600；API baseURL → http://127.0.0.1:9800/api/v1
 ```
 
-**实现状态摘要：** 清洗/训练/解释/P0+P1 API/七路由/Local Agent/batch/项目内 Pi/阶段8（demo checklist、`export_paper_tables`）已落地。开发端口：API **9800**、前端 **5600**。P2 默认不做。
+**实现状态摘要：** 清洗/训练 E0–E8 全矩阵（Stacking/校准/消融）/SHAP/PDP/反事实/多算法分群/预算模拟/全量 API（含模拟与报告）/九路由前端/Pi 编排中枢（默认 runtime + 7 skills + 一键报告 + 审计回放）已落地。开发端口：API **9800**、前端 **5600**。P2（RAG、K8s、多租户、因果 uplift 主线）默认不做。
 
 ---
 
@@ -591,7 +634,8 @@ type：feat/fix/docs/refactor/test/chore/perf/style；scope 为 kebab-case。
 | 主模型 | LightGBM（后备 RF） | 表格+SHAP |
 | 主指标 | PR-AUC | 严重不平衡 |
 | Agent | 工具接地 + 可插拔 Runtime | 避免贴皮 |
-| Pi | tools/pi-cli 项目内 | 可复现、不污染用户环境 |
+| Pi | tools/pi-cli 项目内；**默认 runtime=pi（编排中枢）** | 可复现、不污染用户环境；stub/未安装明确降级并标注 |
+| 默认 run 保护 | 消融/泄漏 run（E5/E6）不参选默认 | 防泄漏结论被误当主结论 |
 | 登录 | 默认无 | 控范围 |
 | ConversionRate | 默认不入模 | 降泄漏质疑 |
 

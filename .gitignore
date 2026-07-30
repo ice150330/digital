@@ -233,6 +233,8 @@ outputs/metrics/
 outputs/explain/
 outputs/segments/
 outputs/rules/
+outputs/simulate/
+outputs/reports/
 outputs/agent_logs/
 outputs/agent_sessions/
 outputs/figures/

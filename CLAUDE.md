@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 本科毕设仓库：**数字营销转化分析 + 工具接地 AI Copilot**。
 
-**已落地：** M0 + 清洗/split + E0/E1/E3 + SHAP/P0 API + **前端七路由** + **Local Agent** + **分群/规则** + **batch** + **项目内 Pi** + **阶段8**（demo checklist / 论文表导出 / 测试补强）。  
+**已落地：** M0 + 清洗/split + **E0–E8 全实验矩阵**（含 SMOTE/泄漏消融/Stacking/校准）+ CV/CI/曲线/lift/阈值扫描 + SHAP/PDP/反事实 + 多算法分群/PCA/稳定性 + 规则 + **预算模拟器** + 全量 API + **前端九路由** + **Pi 编排中枢**（默认 runtime=pi、7 skills、一键报告、审计回放）。  
 **端口：** API **9800** · 前端 **5600**。  
 **P2 默认不做。**
 
@@ -36,19 +36,28 @@ python scripts/import_campaigns.py          # 默认 force 全量重建
 python scripts/01_clean_data.py
 python scripts/00_profile_data.py --from-clean --write-report
 
-# 分类实验 E0/E1/E3 → outputs/models|metrics
+# 分类实验：基础（E0/E1/E3）→ outputs/models|metrics
 python scripts/02_train_classify.py
+
+# 全量矩阵 E0–E8（消融/Stacking/校准 + CV/CI/曲线/lift/阈值扫描）
+python scripts/06_train_full.py
 
 # 全局解释 + 样例缓存
 python scripts/03_explain_shap.py
+
+# PDP/ICE + 预算模拟 + 分群对比
+python scripts/07_explain_advanced.py
+python scripts/08_simulate_budget.py
+python scripts/09_cluster_compare.py
 
 # 分群 / 关联规则（P1）
 python scripts/04_train_cluster.py
 python scripts/05_mine_rules.py
 
-# 一键（清洗→训练→解释；可选 P1）
+# 一键（清洗→训练→解释；可选 P1 / 全量）
 python scripts/run_all.py
 python scripts/run_all.py --with-p1
+python scripts/run_all.py --with-p1 --full
 
 # 项目内 Pi stub/安装（禁止全局 pi）
 python scripts/setup_pi_cli.py
@@ -59,6 +68,11 @@ pytest tests/test_api_core.py
 pytest tests/test_agent_tools.py
 pytest tests/test_segment_rules.py
 pytest tests/test_pi_path.py
+pytest tests/test_train_full.py
+pytest tests/test_simulate.py
+pytest tests/test_counterfactual.py
+pytest tests/test_api_advanced.py
+pytest tests/test_agent_runtime.py
 
 # 论文表导出 / 演示清单
 python scripts/export_paper_tables.py
@@ -119,19 +133,22 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
   - `GET /health`（`database_ok`、`campaigns_count`、`artifacts_ok`、`default_run_id`）
   - `GET /data/overview`、`GET /meta/features`
   - `GET /models/metrics`、`GET /models/metrics/{run_id}`、`POST /models/predict`、`POST /models/predict/batch`
-  - `GET /explain/global`、`POST /explain/customer`
-  - `GET /segments`、`POST /segments/assign`、`GET /rules`
+  - `GET /models/curves`、`GET /models/calibration`、`GET /models/lift`、`GET /models/threshold-scan`
+  - `GET /explain/global`、`POST /explain/customer`、`GET /explain/pdp`、`POST /explain/counterfactual`
+  - `GET /segments`、`POST /segments/assign`、`GET /segments/compare`、`GET /segments/projection`、`GET /rules`
+  - `POST /simulate/budget`（期望值口径；`export=true` 落 CSV）
   - `POST /agent/chat`、`GET /agent/sessions/{id}`、`POST /agent/runtime`、`GET /agent/pi/status`
+  - `GET /agent/audit/recent`、`POST /agent/report`（一键分析报告 → `outputs/reports/`）
 - 预测须带回 `proba` / `label` / `threshold` / `run_id`；解释带回 `top_features` + `method`。
-- 默认 run：非 Dummy 中 PR-AUC 最高，近并列偏好树/LightGBM（解释友好）。
+- 默认 run：非 Dummy **非消融**中 PR-AUC 最高，0.01 窗口近并列偏好纯树/LightGBM（stacking 不享树加成；E5/E6 消融 run 代码级排除）。
 - Agent 输出契约：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace`。
-- Runtime：默认 `local`；`pi` 仅 `tools/pi-cli/`（`config/agent.yaml` → `pi.executable`）；无 Key 可 `template`。
-- 审计：`outputs/agent_logs/*.jsonl`；会话：`outputs/agent_sessions/`。
+- Runtime：**默认 `pi`（编排中枢）**；stub/未安装明确降级 local 并在响应 `pi_fallback` + `open_questions` 标注；`pi` 仅 `tools/pi-cli/`（`config/agent.yaml` → `pi.executable`）；无 Key 可 `template`。
+- 审计：`outputs/agent_logs/*.jsonl`；会话：`outputs/agent_sessions/`；skills：`agent/skills/*/SKILL.md` ×7。
 
 ## 前端要点（细节见 DESIGN）
 
-- 栈：**Vue 3 + Vite + Element Plus + ECharts + axios**（勿擅自换 React 等）。当前空壳已接 Element Plus + axios + vue-router；ECharts 待业务页。
-- 路由：`/` `/models` `/customers` `/segments` `/rules` `/agent` `/about` 均已挂业务或真数据页。
+- 栈：**Vue 3 + Vite + Element Plus + ECharts + axios**（勿擅自换 React 等）。ECharts 按需引入，图表色统一 `utils/chartTheme.ts`。
+- 路由：`/` `/models` `/customers` `/segments` `/rules` `/simulate` `/agent` `/pi` `/about` 九路由均已挂真数据页。
 - 数字一律来自后端；禁止前端假造 AUC。`baseURL` 用 `VITE_API_BASE_URL`。
 - 组件视觉参考：`pen/ui.pen`（KpiCard、ShapBarChart、ToolTracePanel 等）。
 
@@ -147,5 +164,5 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 
 ## 实现优先级提示
 
-P0/P1/阶段8 主线已齐；后续仅答辩彩排与文案微调。  
-永不砍：防泄漏叙述、PR-AUC 主指标、可运行 API、工具接地 Agent、Pi 仅 `tools/pi-cli/`。
+P0/P1/阶段8/阶段9 主线已齐；后续仅答辩彩排与文案微调。  
+永不砍：防泄漏叙述、PR-AUC 主指标、可运行 API、工具接地 Agent、Pi 仅 `tools/pi-cli/`、E5/E6 消融不参选默认 run、反事实/模拟的「非因果」口径。
