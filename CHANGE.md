@@ -37,7 +37,8 @@
 - **原因：** 用户指定端口；全量计划阶段 8
 - **影响：** 本地启动命令变更；旧 8000/5173 文档已替换
 - **破坏性：** 有（开发端口变更；须用新端口启服务）
-- **验证：** `python scripts/export_paper_tables.py`；`pytest`；`npm run build`
+- **关联：** commit `af98337`
+- **验证：** `python scripts/export_paper_tables.py`；`pytest` 38 passed；`npm run build`
 
 ## 2026-07-30 — docs：同步 README/AGENTS/计划至 P0+P1 终态
 

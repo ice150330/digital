@@ -14,7 +14,7 @@
 
 ## 当前状态（2026-07-30）
 
-**已落地（P0 + P1 + 阶段 8 打磨）：**
+**已落地（P0 + P1 + 阶段 8，可演示）：**
 
 - 清洗 / 分层 split / 质量报告；E0 Dummy、E1 Logistic、E3 LightGBM；PR-AUC 主指标
 - 全局/局部解释（LightGBM `pred_contrib` 优先）
@@ -24,6 +24,7 @@
 - 项目内 Pi：`python scripts/setup_pi_cli.py` → 仅 `tools/pi-cli/`（禁止全局 `pi`）
 - 演示：`scripts/demo_checklist.md`；论文表：`python scripts/export_paper_tables.py`
 - **端口：** API **9800** · 前端 **5600**
+- **验证：** `pytest` 绿；`npm run build` 通过
 
 **P2 默认不做**（RAG、K8s、多租户、因果 uplift 主线等）。
 
