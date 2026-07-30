@@ -3,8 +3,6 @@ import { nextTick, onMounted, ref } from 'vue'
 import {
   ElButton,
   ElCard,
-  ElCollapse,
-  ElCollapseItem,
   ElInput,
   ElOption,
   ElSelect,
@@ -19,20 +17,25 @@ import {
   type PiStatusData,
 } from '../api/agent'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
+import RuntimeBadge from '../components/RuntimeBadge.vue'
+import ToolTracePanel from '../components/ToolTracePanel.vue'
 
 const message = ref('各渠道转化率如何？并给出模型 PR-AUC')
 const loading = ref(false)
 const error = ref<string | null>(null)
 const sessionId = ref<string | undefined>()
-const runtime = ref('template')
+const runtime = ref('pi')
 const history = ref<ChatData[]>([])
 const pi = ref<PiStatusData | null>(null)
 const chips = [
   '数据规模与正类占比',
   '各渠道转化率',
   '模型 PR-AUC 与 Dummy',
+  '对比各实验 PR-AUC 与置信区间',
+  '校准前后差异',
+  '预算 5000 的最优分配',
   '解释客户 8000',
-  '质量问题有哪些',
+  '反事实：客户 8000 怎样更可能转化',
   '分群画像摘要',
   '关联规则 lift 最高几条',
   '综合策略摘要',
@@ -85,15 +88,15 @@ onMounted(loadPi)
   <div class="page">
     <PageHeaderBar
       title="AI 分析台"
-      description="工具接地 Copilot：数字来自 tool_trace；无 Key 时为 template/关键词模式。"
+      description="工具接地 Copilot：数字来自 tool_trace；Pi 为默认编排 runtime，stub/未安装时明确降级。"
     >
       <template #actions>
         <ElSpace>
-          <ElTag size="small" type="info">runtime: {{ runtime }}</ElTag>
+          <RuntimeBadge :runtime="runtime" :pi="pi" />
           <ElSelect :model-value="runtime" style="width: 130px" @change="onRuntimeChange">
-            <ElOption label="template" value="template" />
+            <ElOption label="pi（默认）" value="pi" />
             <ElOption label="local" value="local" />
-            <ElOption label="pi" value="pi" />
+            <ElOption label="template" value="template" />
           </ElSelect>
         </ElSpace>
       </template>
@@ -103,8 +106,9 @@ onMounted(loadPi)
       LLM 不替代主分类器；无工具结果不得编造 PR-AUC。Pi 仅允许
       <code>tools/pi-cli/</code>。
       <span v-if="pi">
-        Pi：{{ pi.installed ? '已安装' : '未安装' }}
-        <span v-if="pi.hint"> — {{ pi.hint }}</span>
+        Pi：{{ pi.installed ? (pi.is_stub ? 'stub 占位（降级 local）' : '已安装') : '未安装' }}
+        <span v-if="pi.fallback_reason"> — {{ pi.fallback_reason }}</span>
+        <span v-else-if="pi.hint"> — {{ pi.hint }}</span>
       </span>
     </p>
 
@@ -125,28 +129,31 @@ onMounted(loadPi)
       <div v-if="!history.length" class="muted empty-hint">发送问题开始分析，结果将展示五段契约与 tool_trace。</div>
       <div v-for="(item, idx) in history" :key="idx" class="turn">
         <div class="meta">
-          <ElTag size="small">{{ item.runtime }}</ElTag>
+          <RuntimeBadge :runtime="item.runtime" :pi="pi" :fallback="item.pi_fallback" />
+          <ElTag v-if="item.pi_fallback" size="small" type="warning">Pi 降级</ElTag>
           <span class="mono muted">{{ item.session_id.slice(0, 8) }}…</span>
           <span v-if="item.latency_ms" class="muted">{{ item.latency_ms }} ms</span>
         </div>
         <pre class="reply">{{ item.reply }}</pre>
-        <ElCollapse>
-          <ElCollapseItem title="tool_trace" name="trace">
-            <div v-for="(t, i) in item.tool_trace" :key="i" class="trace-item">
-              <div>
-                <ElTag :type="t.ok ? 'success' : 'danger'" size="small">{{ t.tool }}</ElTag>
-                <span class="mono muted" style="margin-left: 8px">{{ JSON.stringify(t.args || {}) }}</span>
-              </div>
-              <pre v-if="t.error" class="err">{{ t.error }}</pre>
-              <pre v-else class="json">{{ JSON.stringify(t.result, null, 2) }}</pre>
-            </div>
-          </ElCollapseItem>
-          <ElCollapseItem title="observed_facts" name="facts">
-            <ul>
-              <li v-for="(f, i) in item.observed_facts" :key="i">{{ f }}</li>
-            </ul>
-          </ElCollapseItem>
-        </ElCollapse>
+
+        <div v-if="item.observed_facts.length" class="section">
+          <div class="section-title">observed_facts（观察事实）</div>
+          <ul><li v-for="(f, i) in item.observed_facts" :key="i">{{ f }}</li></ul>
+        </div>
+        <div v-if="item.inferences.length" class="section">
+          <div class="section-title">inferences（推断）</div>
+          <ul><li v-for="(f, i) in item.inferences" :key="i">{{ f }}</li></ul>
+        </div>
+        <div v-if="item.recommendations.length" class="section">
+          <div class="section-title">recommendations（建议）</div>
+          <ul><li v-for="(f, i) in item.recommendations" :key="i">{{ f }}</li></ul>
+        </div>
+        <div v-if="item.open_questions.length" class="section">
+          <div class="section-title">open_questions（待澄清）</div>
+          <ul><li v-for="(f, i) in item.open_questions" :key="i">{{ f }}</li></ul>
+        </div>
+
+        <ToolTracePanel :trace="item.tool_trace" />
       </div>
     </ElCard>
 
@@ -174,7 +181,7 @@ onMounted(loadPi)
 }
 .chat-panel {
   min-height: 280px;
-  max-height: 520px;
+  max-height: 560px;
   overflow: auto;
 }
 .empty-hint {
@@ -199,21 +206,20 @@ onMounted(loadPi)
   line-height: 1.6;
   margin: 0 0 8px;
 }
-.trace-item {
-  margin-bottom: 10px;
+.section {
+  margin: 8px 0;
 }
-.json,
-.err {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  background: #f5f7fa;
-  padding: 8px;
-  border-radius: 6px;
-  overflow: auto;
-  max-height: 200px;
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: 4px;
 }
-.err {
-  color: var(--color-danger);
+.section ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.6;
 }
 .composer {
   display: grid;

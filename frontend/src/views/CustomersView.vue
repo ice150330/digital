@@ -10,11 +10,17 @@ import {
   ElOption,
   ElSelect,
   ElSpace,
+  ElTable,
+  ElTableColumn,
   ElTag,
 } from 'element-plus'
 import { fetchFeatureMeta, type FeatureMetaData } from '../api/data'
 import { predict, predictBatch, type BatchPredictData, type PredictData } from '../api/models'
-import { explainCustomer, type CustomerExplainData } from '../api/explain'
+import {
+  explainCounterfactual, explainCustomer,
+  type CounterfactualData, type CustomerExplainData,
+} from '../api/explain'
+import CounterfactualCurveChart from '../components/CounterfactualCurveChart.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
@@ -33,6 +39,34 @@ const batchIds = ref('8000,8001,8002')
 const batchResult = ref<BatchPredictData | null>(null)
 const batchLoading = ref(false)
 
+// 反事实（模型行为口径）：沿用最近一次预测的输入
+const lastInput = ref<{ customer_id?: number; features?: Record<string, unknown> } | null>(null)
+const cfFeature = ref<string>('')
+const cfTarget = ref(0.9)
+const cfLoading = ref(false)
+const cfError = ref<string | null>(null)
+const cf = ref<CounterfactualData | null>(null)
+
+async function runCounterfactual() {
+  if (!lastInput.value || !cfFeature.value) return
+  cfLoading.value = true
+  cfError.value = null
+  cf.value = null
+  try {
+    const r = await explainCounterfactual({
+      ...lastInput.value,
+      feature: cfFeature.value,
+      target_proba: cfTarget.value,
+      run_id: pred.value?.run_id,
+    })
+    cf.value = r.data
+  } catch (e) {
+    cfError.value = e instanceof Error ? e.message : '反事实分析失败'
+  } finally {
+    cfLoading.value = false
+  }
+}
+
 function applyDefaults(m: FeatureMetaData) {
   Object.keys(form).forEach((k) => delete form[k])
   for (const [k, v] of Object.entries(m.sample_defaults || {})) {
@@ -47,6 +81,7 @@ async function loadMeta() {
     const res = await fetchFeatureMeta()
     meta.value = res.data
     applyDefaults(res.data)
+    if (!cfFeature.value) cfFeature.value = res.data.numeric_features?.[0] ?? ''
   } catch (e) {
     error.value = e instanceof Error ? e.message : '加载特征失败'
   } finally {
@@ -65,6 +100,9 @@ async function runPredict(byId: boolean) {
       : { features: { ...form } }
     const p = await predict(body)
     pred.value = p.data
+    lastInput.value = body as { customer_id?: number; features?: Record<string, unknown> }
+    cf.value = null
+    cfError.value = null
     const e = await explainCustomer({
       ...body,
       top_k: 10,
@@ -200,6 +238,66 @@ onMounted(loadMeta)
           />
         </ElCard>
 
+        <ElCard v-if="pred" shadow="never" class="section-card">
+          <template #header>
+            反事实分析（模型行为口径）
+            <span class="muted" style="margin-left: 8px">非因果，不构成投放建议</span>
+          </template>
+          <ElSpace wrap style="width: 100%">
+            <span class="muted">扰动特征</span>
+            <ElSelect v-model="cfFeature" style="width: 200px">
+              <ElOption
+                v-for="f in meta?.numeric_features ?? []"
+                :key="f"
+                :label="f"
+                :value="f"
+              />
+            </ElSelect>
+            <span class="muted">目标 proba</span>
+            <ElInputNumber v-model="cfTarget" :min="0.05" :max="0.99" :step="0.05" :controls="false" />
+            <ElButton type="primary" :loading="cfLoading" :disabled="!cfFeature" @click="runCounterfactual">
+              分析
+            </ElButton>
+          </ElSpace>
+          <p v-if="cfError" class="err-text">{{ cfError }}</p>
+          <template v-if="cf">
+            <CounterfactualCurveChart
+              v-if="cf.curve"
+              :feature="cf.curve.feature"
+              :grid="cf.curve.grid"
+              :proba="cf.curve.proba"
+              :base-value="cf.curve.base_value"
+              :base-proba="cf.curve.base_proba"
+              :target-proba="cfTarget"
+            />
+            <div v-if="cf.counterfactual" class="cf-block">
+              <div class="cf-head">
+                <ElTag :type="cf.counterfactual.achieved ? 'success' : 'warning'" size="small">
+                  {{ cf.counterfactual.achieved ? '可达目标' : '步数上限内未达标' }}
+                </ElTag>
+                <span class="tabular-nums muted">
+                  base {{ cf.counterfactual.base_proba.toFixed(4) }} →
+                  final {{ cf.counterfactual.final_proba.toFixed(4) }} ·
+                  {{ cf.counterfactual.n_steps }} 步
+                </span>
+              </div>
+              <ElTable v-if="cf.counterfactual.steps.length" :data="cf.counterfactual.steps" size="small">
+                <ElTableColumn prop="feature" label="特征" min-width="140" />
+                <ElTableColumn label="从" width="110">
+                  <template #default="{ row }"><span class="tabular-nums">{{ row.from.toFixed(3) }}</span></template>
+                </ElTableColumn>
+                <ElTableColumn label="改为" width="110">
+                  <template #default="{ row }"><span class="tabular-nums">{{ row.to.toFixed(3) }}</span></template>
+                </ElTableColumn>
+                <ElTableColumn label="改动后 proba" width="130">
+                  <template #default="{ row }"><span class="tabular-nums">{{ row.proba_after.toFixed(4) }}</span></template>
+                </ElTableColumn>
+              </ElTable>
+              <p class="muted">{{ cf.counterfactual.disclaimer }}</p>
+            </div>
+          </template>
+        </ElCard>
+
         <EmptyState
           v-if="!pred && !loading"
           title="尚未预测"
@@ -271,5 +369,18 @@ onMounted(loadMeta)
 }
 .batch-list.err {
   color: var(--el-color-danger);
+}
+.cf-block {
+  margin-top: 12px;
+}
+.cf-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.err-text {
+  color: var(--color-danger);
+  font-size: 13px;
 }
 </style>

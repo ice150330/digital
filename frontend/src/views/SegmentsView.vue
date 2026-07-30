@@ -1,17 +1,30 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElButton, ElCard, ElInputNumber, ElSpace, ElTable, ElTableColumn, ElTag } from 'element-plus'
-import { assignSegment, fetchSegments, type SegmentsData } from '../api/segments'
+import {
+  assignSegment, fetchSegmentCompare, fetchSegmentProjection, fetchSegments,
+  type SegmentCompareData, type SegmentProjectionData, type SegmentsData,
+} from '../api/segments'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
+import ScatterPcaChart from '../components/ScatterPcaChart.vue'
 import { formatInt, formatPercent } from '../utils/format'
 
 const loading = ref(false)
 const error = ref<string | null>(null)
 const data = ref<SegmentsData | null>(null)
+const compare = ref<SegmentCompareData | null>(null)
+const projection = ref<SegmentProjectionData | null>(null)
 const customerId = ref<number>(8000)
 const assignResult = ref<string>('')
+
+const autoNames = computed(() => compare.value?.auto_names ?? {})
+const stabilityBadge = computed(() => {
+  const s = compare.value?.stability
+  if (!s) return null
+  return { type: s.ari_mean >= 0.75 ? 'success' : s.ari_mean >= 0.5 ? 'primary' : 'warning', ...s }
+})
 
 async function load() {
   loading.value = true
@@ -19,6 +32,18 @@ async function load() {
   try {
     const r = await fetchSegments()
     data.value = r.data
+    try {
+      const c = await fetchSegmentCompare()
+      compare.value = c.data
+    } catch {
+      compare.value = null
+    }
+    try {
+      const p = await fetchSegmentProjection()
+      projection.value = p.data
+    } catch {
+      projection.value = null
+    }
   } catch (e) {
     data.value = null
     error.value = e instanceof Error ? e.message : '加载失败'
@@ -43,7 +68,7 @@ onMounted(load)
   <div class="page">
     <PageHeaderBar
       title="分群画像"
-      description="K-Means 分群；训练特征不含 Conversion，簇转化率为事后统计。"
+      description="多算法分群对比 + 稳定性评估 + PCA 投影；训练特征不含 Conversion，簇转化率为事后统计。"
     >
       <template #actions>
         <ElButton type="primary" :loading="loading" @click="load">刷新</ElButton>
@@ -66,16 +91,30 @@ onMounted(load)
           <ElTag v-if="data.label_excluded" size="small" type="success" style="margin-left: 8px">
             训练无标签
           </ElTag>
+          <ElTag
+            v-if="stabilityBadge"
+            size="small"
+            :type="stabilityBadge.type as 'success' | 'primary' | 'warning'"
+            style="margin-left: 8px"
+            :title="`bootstrap ${stabilityBadge.n_boot} 次 ARI：${stabilityBadge.note || '划分配对稳定性'}`"
+          >
+            稳定性 ARI {{ stabilityBadge.ari_mean.toFixed(3) }}±{{ stabilityBadge.ari_std.toFixed(3) }}
+          </ElTag>
         </template>
         <ElTable :data="data.clusters" size="small" stripe>
-          <ElTableColumn prop="cluster_id" label="簇" width="80" />
-          <ElTableColumn label="人数" width="100">
+          <ElTableColumn prop="cluster_id" label="簇" width="70" />
+          <ElTableColumn label="自动画像名" min-width="170">
+            <template #default="{ row }">
+              {{ autoNames[String(row.cluster_id)] || '—' }}
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="人数" width="90">
             <template #default="{ row }">{{ formatInt(row.n) }}</template>
           </ElTableColumn>
-          <ElTableColumn label="占比" width="100">
+          <ElTableColumn label="占比" width="90">
             <template #default="{ row }">{{ formatPercent(row.share) }}</template>
           </ElTableColumn>
-          <ElTableColumn label="事后转化率" width="120">
+          <ElTableColumn label="事后转化率" width="110">
             <template #default="{ row }">{{ formatPercent(row.conversion_rate) }}</template>
           </ElTableColumn>
           <ElTableColumn label="画像均值（节选）">
@@ -88,6 +127,62 @@ onMounted(load)
             </template>
           </ElTableColumn>
         </ElTable>
+      </ElCard>
+
+      <ElCard v-if="projection?.points?.length" shadow="never" class="section-card">
+        <template #header>
+          PCA 二维投影
+          <span class="muted" style="margin-left: 8px">
+            方差解释率
+            {{ projection.explained_variance.map((v) => (v * 100).toFixed(1) + '%').join(' + ') }}
+            · n={{ formatInt(projection.n_points) }}
+          </span>
+        </template>
+        <ScatterPcaChart :points="projection.points" :auto-names="autoNames" />
+        <p class="muted" style="margin-bottom: 0">PCA 仅用于可视化，不参与分群训练；相关非因果。</p>
+      </ElCard>
+
+      <ElCard v-if="compare?.comparison?.length" shadow="never" class="section-card">
+        <template #header>
+          多算法对比（KMeans / GMM / Agglomerative × K）
+          <span class="muted" style="margin-left: 8px">主分群：KMeans k={{ compare.kmeans_k }}</span>
+        </template>
+        <ElTable :data="compare.comparison" size="small" stripe max-height="360">
+          <ElTableColumn prop="algo" label="算法" width="140">
+            <template #default="{ row }"><span class="mono">{{ row.algo }}</span></template>
+          </ElTableColumn>
+          <ElTableColumn prop="k" label="K" width="70" />
+          <ElTableColumn label="Silhouette" width="120">
+            <template #default="{ row }">
+              <strong v-if="row.algo === 'kmeans' && row.k === compare.kmeans_k" class="tabular-nums">
+                {{ row.silhouette?.toFixed(4) ?? '—' }}
+              </strong>
+              <span v-else class="tabular-nums">{{ row.silhouette?.toFixed(4) ?? '—' }}</span>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="CH 指数" width="120">
+            <template #default="{ row }">
+              <span class="tabular-nums">{{ row.calinski_harabasz?.toFixed(1) ?? '—' }}</span>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="BIC（GMM）" width="130">
+            <template #default="{ row }">
+              <span class="tabular-nums">{{ row.bic != null ? row.bic.toFixed(0) : '—' }}</span>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="备注" min-width="140">
+            <template #default="{ row }">
+              <span v-if="row.error" class="err-text">{{ row.error }}</span>
+              <ElTag
+                v-else-if="row.algo === 'kmeans' && row.k === compare.kmeans_k"
+                size="small" type="success"
+              >
+                当前主分群
+              </ElTag>
+            </template>
+          </ElTableColumn>
+        </ElTable>
+        <p class="muted" style="margin-bottom: 0">{{ compare.disclaimer }}</p>
       </ElCard>
 
       <ElCard shadow="never" class="section-card">
@@ -103,7 +198,14 @@ onMounted(load)
     <EmptyState
       v-else-if="!loading"
       title="分群尚未就绪"
-      description="请运行 python scripts/04_train_cluster.py"
+      description="请运行 python scripts/04_train_cluster.py && python scripts/09_cluster_compare.py"
     />
   </div>
 </template>
+
+<style scoped>
+.err-text {
+  color: var(--color-danger);
+  font-size: 12px;
+}
+</style>

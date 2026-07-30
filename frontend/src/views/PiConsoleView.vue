@@ -1,0 +1,268 @@
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import {
+  ElButton, ElCard, ElDescriptions, ElDescriptionsItem, ElInput, ElSpace,
+  ElTable, ElTableColumn, ElTag,
+} from 'element-plus'
+import {
+  fetchAgentSession, fetchAuditRecent, fetchPiStatus, generateReport,
+  type AuditRow, type PiStatusData, type ReportData,
+} from '../api/agent'
+import EmptyState from '../components/EmptyState.vue'
+import ErrorState from '../components/ErrorState.vue'
+import PageHeaderBar from '../components/PageHeaderBar.vue'
+import RuntimeBadge from '../components/RuntimeBadge.vue'
+import ToolTracePanel from '../components/ToolTracePanel.vue'
+
+const loading = ref(false)
+const error = ref<string | null>(null)
+const pi = ref<PiStatusData | null>(null)
+const audit = ref<AuditRow[]>([])
+
+const reportLoading = ref(false)
+const reportTitle = ref('数字营销转化分析报告')
+const report = ref<ReportData | null>(null)
+
+const sessionId = ref('')
+const sessionData = ref<Record<string, unknown> | null>(null)
+const sessionError = ref<string | null>(null)
+
+async function load() {
+  loading.value = true
+  error.value = null
+  try {
+    const [p, a] = await Promise.all([fetchPiStatus(), fetchAuditRecent(50)])
+    pi.value = p.data
+    audit.value = a.data.items
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function makeReport() {
+  reportLoading.value = true
+  report.value = null
+  try {
+    const r = await generateReport({ title: reportTitle.value || undefined })
+    report.value = r.data
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '报告生成失败'
+  } finally {
+    reportLoading.value = false
+  }
+}
+
+async function replay() {
+  sessionError.value = null
+  sessionData.value = null
+  if (!sessionId.value.trim()) return
+  try {
+    const r = await fetchAgentSession(sessionId.value.trim())
+    sessionData.value = r.data
+  } catch (e) {
+    sessionError.value = e instanceof Error ? e.message : '会话不存在'
+  }
+}
+
+onMounted(load)
+</script>
+
+<template>
+  <div class="page">
+    <PageHeaderBar
+      title="Pi 编排中枢"
+      description="Pi 为默认 runtime 的编排中枢：skills 生态、一键报告、审计与会话回放。stub/未安装时明确降级 local。"
+    >
+      <template #actions>
+        <ElButton type="primary" :loading="loading" @click="load">刷新</ElButton>
+      </template>
+    </PageHeaderBar>
+
+    <ErrorState v-if="error && !loading" :message="error" @retry="load" />
+
+    <div class="grid-2">
+      <div>
+        <ElCard shadow="never" class="section-card">
+          <template #header>
+            Runtime 状态
+            <RuntimeBadge
+              v-if="pi"
+              :runtime="pi.installed && !pi.is_stub ? 'pi' : 'local'"
+              :pi="pi"
+              :fallback="Boolean(pi.is_stub || pi.fallback_reason)"
+              style="margin-left: 8px"
+            />
+          </template>
+          <ElDescriptions v-if="pi" :column="1" size="small" border>
+            <ElDescriptionsItem label="默认 runtime">
+              <span class="mono">{{ pi.default_runtime }}</span>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="Pi 可执行文件">
+              <span class="mono">{{ pi.executable || '未安装' }}</span>
+              <ElTag v-if="pi.is_stub" size="small" type="warning" style="margin-left: 8px">stub 占位</ElTag>
+              <ElTag v-else-if="pi.installed" size="small" type="success" style="margin-left: 8px">真实安装</ElTag>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="pi.fallback_reason" label="降级原因">
+              {{ pi.fallback_reason }}
+            </ElDescriptionsItem>
+            <ElDescriptionsItem v-if="pi.hint" label="提示">{{ pi.hint }}</ElDescriptionsItem>
+            <ElDescriptionsItem label="会话数">
+              <span class="tabular-nums">{{ pi.sessions_count }}</span>
+            </ElDescriptionsItem>
+          </ElDescriptions>
+          <p class="muted" style="margin-bottom: 0">
+            Pi 仅允许 <code>tools/pi-cli/</code>（项目内）；禁止 PATH/which pi 回退与全局安装。
+          </p>
+        </ElCard>
+
+        <ElCard shadow="never" class="section-card">
+          <template #header>
+            Skills（{{ pi?.skills_detail?.length ?? 0 }}）
+          </template>
+          <EmptyState
+            v-if="!pi?.skills_detail?.length"
+            title="未发现 skills"
+            description="skills 目录：agent/skills/*/SKILL.md"
+          />
+          <div v-for="s in pi?.skills_detail ?? []" :key="s.name" class="skill">
+            <div class="skill-name mono">{{ s.name }}</div>
+            <div class="muted">{{ s.description }}</div>
+          </div>
+        </ElCard>
+
+        <ElCard shadow="never" class="section-card">
+          <template #header>一键分析报告</template>
+          <ElSpace wrap style="width: 100%">
+            <ElInput v-model="reportTitle" style="min-width: 240px" placeholder="报告标题" />
+            <ElButton type="primary" :loading="reportLoading" @click="makeReport">
+              生成报告
+            </ElButton>
+          </ElSpace>
+          <div v-if="report" class="report-box">
+            <p>
+              <ElTag size="small" :type="report.n_sections_ok === report.n_sections ? 'success' : 'warning'">
+                {{ report.n_sections_ok }}/{{ report.n_sections }} 节完成
+              </ElTag>
+              <span class="mono muted" style="margin-left: 8px">{{ report.report_path }}</span>
+            </p>
+            <pre class="digest">{{ report.digest }}</pre>
+            <ToolTracePanel :trace="report.tool_trace" />
+            <p class="muted">{{ report.disclaimer }}</p>
+          </div>
+        </ElCard>
+      </div>
+
+      <div>
+        <ElCard shadow="never" class="section-card">
+          <template #header>会话回放</template>
+          <ElSpace wrap style="width: 100%">
+            <ElInput v-model="sessionId" style="min-width: 260px" placeholder="session_id（见审计表）" />
+            <ElButton @click="replay">加载</ElButton>
+          </ElSpace>
+          <p v-if="sessionError" class="err-text">{{ sessionError }}</p>
+          <pre v-if="sessionData" class="json">{{ JSON.stringify(sessionData, null, 2) }}</pre>
+          <EmptyState
+            v-else-if="!sessionError"
+            title="输入会话 ID"
+            description="从右侧审计表复制 session_id 回放完整对话与工具轨迹。"
+          />
+        </ElCard>
+
+        <ElCard shadow="never" class="section-card">
+          <template #header>审计日志（最近 {{ audit.length }} 条）</template>
+          <ElTable :data="audit" size="small" stripe max-height="520">
+            <ElTableColumn label="时间" width="150">
+              <template #default="{ row }"><span class="mono muted">{{ row.ts }}</span></template>
+            </ElTableColumn>
+            <ElTableColumn label="runtime" width="110">
+              <template #default="{ row }">
+                <ElTag size="small" :type="row.runtime === 'pi' ? 'success' : 'info'">{{ row.runtime }}</ElTag>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="用户消息" min-width="200">
+              <template #default="{ row }">{{ row.user_message }}</template>
+            </ElTableColumn>
+            <ElTableColumn label="工具" min-width="160">
+              <template #default="{ row }">
+                <ElTag
+                  v-for="(t, i) in row.tool_calls"
+                  :key="i"
+                  size="small"
+                  :type="t.ok ? 'success' : 'danger'"
+                  style="margin-right: 4px"
+                >
+                  {{ t.tool }}
+                </ElTag>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="会话" width="110">
+              <template #default="{ row }">
+                <span class="mono muted">{{ row.session_id?.slice(0, 8) }}…</span>
+              </template>
+            </ElTableColumn>
+            <ElTableColumn label="耗时" width="80">
+              <template #default="{ row }">
+                <span class="tabular-nums muted">{{ row.latency_ms ?? '—' }}ms</span>
+              </template>
+            </ElTableColumn>
+          </ElTable>
+        </ElCard>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+.skill {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.skill:last-child {
+  border-bottom: none;
+}
+.skill-name {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.report-box {
+  margin-top: 12px;
+}
+.digest {
+  white-space: pre-wrap;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  background: #f5f7fa;
+  padding: 10px;
+  border-radius: 6px;
+  max-height: 220px;
+  overflow: auto;
+}
+.json {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: #f5f7fa;
+  padding: 10px;
+  border-radius: 6px;
+  overflow: auto;
+  max-height: 420px;
+  margin-top: 12px;
+}
+.err-text {
+  color: var(--color-danger);
+  font-size: 13px;
+}
+</style>

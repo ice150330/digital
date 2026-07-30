@@ -34,10 +34,22 @@ const router = createRouter({
       meta: { title: '关联规则' },
     },
     {
+      path: '/simulate',
+      name: 'simulate',
+      component: () => import('../views/SimulateView.vue'),
+      meta: { title: '预算模拟' },
+    },
+    {
       path: '/agent',
       name: 'agent',
       component: () => import('../views/AgentView.vue'),
       meta: { title: 'AI 分析台' },
+    },
+    {
+      path: '/pi',
+      name: 'pi',
+      component: () => import('../views/PiConsoleView.vue'),
+      meta: { title: 'Pi 编排中枢' },
     },
     {
       path: '/about',

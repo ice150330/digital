@@ -14,7 +14,9 @@ const nav = [
   { to: '/customers', label: '客户洞察' },
   { to: '/segments', label: '分群画像' },
   { to: '/rules', label: '关联规则' },
+  { to: '/simulate', label: '预算模拟' },
   { to: '/agent', label: 'AI 分析台' },
+  { to: '/pi', label: 'Pi 编排中枢' },
   { to: '/about', label: '关于与复现' },
 ]
 
