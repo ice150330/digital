@@ -129,3 +129,28 @@ def top_association_rules(min_lift: float = 1.0, limit: int = 20) -> dict[str, A
         "disclaimer": data.get("disclaimer") or "关联规则表达相关而非因果",
         "rules": filtered,
     }
+
+
+def strategy_brief() -> dict[str, Any]:
+    """综合只读摘要：指标 + 可选分群/规则；不含因果断言。"""
+    brief: dict[str, Any] = {
+        "disclaimer": "本摘要仅综合分析产物，不构成因果或投放保证。",
+        "primary_metric": "pr_auc",
+    }
+    try:
+        brief["dataset"] = get_dataset_profile()
+    except Exception as e:  # noqa: BLE001
+        brief["dataset_error"] = str(e)
+    try:
+        brief["metrics"] = get_model_metrics()
+    except Exception as e:  # noqa: BLE001
+        brief["metrics_error"] = str(e)
+    try:
+        brief["segments"] = segment_summary()
+    except Exception as e:  # noqa: BLE001
+        brief["segments_note"] = str(e)
+    try:
+        brief["rules_top"] = top_association_rules(min_lift=1.1, limit=5)
+    except Exception as e:  # noqa: BLE001
+        brief["rules_note"] = str(e)
+    return brief

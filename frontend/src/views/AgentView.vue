@@ -33,6 +33,9 @@ const chips = [
   '模型 PR-AUC 与 Dummy',
   '解释客户 8000',
   '质量问题有哪些',
+  '分群画像摘要',
+  '关联规则 lift 最高几条',
+  '综合策略摘要',
 ]
 
 async function loadPi() {

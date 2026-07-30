@@ -64,8 +64,12 @@ def plan_tools(message: str) -> list[tuple[str, dict[str, Any]]]:
         plans.append(("predict_proba", {"customer_id": cid}))
     if any(k in msg for k in ("分群", "segment", "cluster", "簇")):
         plans.append(("segment_summary", {}))
+        if cid is not None:
+            plans.append(("assign_cluster", {"customer_id": cid}))
     if any(k in msg for k in ("规则", "association", "lift", "关联")):
         plans.append(("top_association_rules", {"min_lift": 1.0, "limit": 10}))
+    if any(k in msg for k in ("策略", "brief", "综合", "建议摘要")):
+        plans.append(("strategy_brief", {}))
     if any(k in msg for k in ("画像", "概览", "样本", "overview", "数据规模", "多少行")):
         plans.append(("get_dataset_profile", {}))
 

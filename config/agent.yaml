@@ -27,3 +27,7 @@ tools:
     - predict_proba
     - explain_global
     - explain_customer
+    - segment_summary
+    - assign_cluster
+    - top_association_rules
+    - strategy_brief

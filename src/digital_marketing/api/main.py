@@ -14,6 +14,8 @@ from digital_marketing.api.routes_data import router as data_router
 from digital_marketing.api.routes_explain import router as explain_router
 from digital_marketing.api.routes_health import router as health_router
 from digital_marketing.api.routes_models import router as models_router
+from digital_marketing.api.routes_rules import router as rules_router
+from digital_marketing.api.routes_segments import router as segments_router
 from digital_marketing.core.config import get_settings
 from digital_marketing.core.logging import setup_logging
 from digital_marketing.schemas.common import ApiError, Envelope
@@ -65,6 +67,8 @@ def create_app() -> FastAPI:
     app.include_router(data_router, prefix=prefix)
     app.include_router(models_router, prefix=prefix)
     app.include_router(explain_router, prefix=prefix)
+    app.include_router(segments_router, prefix=prefix)
+    app.include_router(rules_router, prefix=prefix)
     app.include_router(agent_router, prefix=prefix)
     return app
 

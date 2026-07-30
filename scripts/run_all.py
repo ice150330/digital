@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""一键：清洗 → 训练 → 全局解释。"""
+"""一键：清洗 → 训练 → 全局解释 →（可选）分群/规则。"""
 
 from __future__ import annotations
 
@@ -23,6 +23,9 @@ def main() -> int:
     parser.add_argument("--skip-clean", action="store_true")
     parser.add_argument("--skip-train", action="store_true")
     parser.add_argument("--skip-explain", action="store_true")
+    parser.add_argument("--with-segments", action="store_true", help="训练 K-Means 分群")
+    parser.add_argument("--with-rules", action="store_true", help="挖掘关联规则")
+    parser.add_argument("--with-p1", action="store_true", help="同时跑分群+规则")
     args = parser.parse_args()
     py = sys.executable
 
@@ -32,6 +35,10 @@ def main() -> int:
         run([py, "scripts/02_train_classify.py"])
     if not args.skip_explain:
         run([py, "scripts/03_explain_shap.py"])
+    if args.with_p1 or args.with_segments:
+        run([py, "scripts/04_train_cluster.py"])
+    if args.with_p1 or args.with_rules:
+        run([py, "scripts/05_mine_rules.py"])
     print("run_all done")
     return 0
 

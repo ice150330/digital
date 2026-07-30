@@ -20,6 +20,7 @@ REGISTRY: dict[str, ToolFn] = {
     "segment_summary": catalog.segment_summary,
     "assign_cluster": catalog.assign_cluster,
     "top_association_rules": catalog.top_association_rules,
+    "strategy_brief": catalog.strategy_brief,
 }
 
 
