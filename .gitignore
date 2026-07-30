@@ -216,3 +216,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# --- digital project ---
+outputs/**/*.db
+outputs/**/*.db-journal
+outputs/**/*.db-wal
+outputs/**/*.db-shm
+*.egg-info/
+.eggs/
+dist/
+frontend/node_modules/
+frontend/dist/
+outputs/processed/
+outputs/models/
+outputs/metrics/
+outputs/segments/
+outputs/rules/
+outputs/agent_logs/
+outputs/agent_sessions/
+!outputs/**/.gitkeep
+tools/pi-cli/node_modules/

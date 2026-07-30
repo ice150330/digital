@@ -8,7 +8,7 @@
 > - **`CHANGE.md`：** 每次有意义修改的人工记录  
 > **冲突优先级：** 硬性禁止项以本文件为准；前端视觉/交互以 `DESIGN.md` 为准；范围以计划书为准。  
 > **语言：** 用户可见说明、文档、注释（非标识符）用**中文**。  
-> **最后同步：** 2026-07-30（v0.2 文档职责拆分）
+> **最后同步：** 2026-07-30（v0.3 双轨存储：SQLite 主数据 + outputs 产物）
 
 ---
 
@@ -108,14 +108,15 @@
 │  (见 DESIGN) │                          │  digital_marketing│
 └─────────────┘                          └────────┬─────────┘
                                                   │
-                    ┌─────────────────────────────┼──────────────────────┐
-                    ▼                             ▼                      ▼
-            Analysis Core                  Agent Service            文件系统
-         清洗/特征/训练/SHAP              tools + LLM/Pi           outputs/
-         分群/关联规则                    audit                    config/
-                                              │
-                                              ▼
-                                     tools/pi-cli/ (可选, 项目内)
+          ┌───────────────────────────────────────┼──────────────────────────┐
+          ▼                       ▼               ▼                          ▼
+   Analysis Core           Agent Service    SQLite 主数据轨           产物文件轨
+清洗/特征/训练/SHAP       tools + LLM/Pi   outputs/db/app.db         outputs/{models,
+分群/关联规则             audit            ← CSV 导入可重建           metrics,processed…}
+          │                     │
+          └──────────┬──────────┘
+                     ▼
+            tools/pi-cli/ (可选, 项目内)
 ```
 
 ### 4.2 设计原则
@@ -123,7 +124,8 @@
 | 原则 | 含义 |
 |------|------|
 | 内核与 Agent 分离 | 指标/模型只来自分析内核 |
-| 产物驱动 | 论文、API、Agent 共用 `outputs/` |
+| **双轨存储** | **主数据轨** SQLite（查询/列表）；**产物轨** `outputs/` 文件（模型/metrics/SHAP） |
+| 产物驱动 | 论文、API、Agent 共用 `outputs/` 分析产物；metrics **不进** SQLite |
 | Runtime 可插拔 | 默认 `local`；`pi` 为项目内 CLI |
 | 先正确后展示 | P0 保证指标与 API；UI 见 DESIGN |
 | 相关非因果 | API 文案与 Agent 统一口径 |
@@ -180,25 +182,36 @@ src/digital_marketing/
   schemas/       # pydantic DTO
 ```
 
-### 4.5 数据流
+### 4.5 数据流（双轨）
 
 ```text
-raw CSV (data/, 只读)
-  → load → quality profile → docs/reports + outputs
-  → clean → outputs/processed/
-  → stratified split → splits 元数据
-  → fit features on train → feature_schema.json
-  → train → outputs/models/<run_id>/
-  → metrics / figures / shap
-  → segment / rules artifacts
-  → API 只读加载 artifact
-  → Agent 工具只读调用门面或产物
+raw CSV (data/, 只读真相源)
+  │
+  ├─【主数据轨】import → outputs/db/app.db (campaigns + import_batches)
+  │              API 列表/按 CustomerID 查询；可随时删库重建
+  │
+  └─【产物轨】load → quality profile → docs/reports + outputs/
+                 → clean → outputs/processed/
+                 → stratified split → splits 元数据
+                 → fit features on train → feature_schema.json
+                 → train → outputs/models/<run_id>/
+                 → metrics / figures / shap（文件，不进 SQLite）
+                 → segment / rules artifacts
+                 → API 只读加载 artifact
+                 → Agent 工具只读调用门面或产物
 ```
 
-**产物目录：** 实现时在 `config/settings.yaml` **固定**使用 `outputs/`（推荐）或 `artifacts/` 之一，并在 CHANGE 声明；本文默认写 `outputs/`。
+**禁止：**
+
+- 把 `app.db` 放在 `data/`  
+- 覆盖 `data/` 原始 CSV  
+- 把 metrics / model blob / SHAP 矩阵塞进 SQLite（本仓库产物轨固定为文件）
+
+**产物目录：** `config/settings.yaml` 固定 `outputs/`（含 `outputs/db/app.db`）。
 
 | 产物 | 用途 |
 |------|------|
+| `outputs/db/app.db` | **主数据轨**：营销活动行（可重建） |
 | `outputs/models/<run_id>/model.*` | 推理 |
 | `outputs/models/<run_id>/metrics.json` | 评估/论文/前端 |
 | `outputs/models/<run_id>/feature_schema.json` | 推理校验 |
@@ -220,17 +233,18 @@ raw CSV (data/, 只读)
 ### 5.2 标准目录
 
 ```text
-data/                  # 原始只读
+data/                  # 原始只读 CSV（真相源）
 config/
 src/digital_marketing/
 frontend/              # UI，详见 DESIGN.md
-scripts/               # 含 setup_pi_cli.py, run_all.py
+scripts/               # init_db / import_campaigns / 后续 run_all 等
 tools/pi-cli/          # 项目内 Pi
 tests/
 notebooks/             # 探索用；结论必须回流 src/
 docs/plans/
 docs/reports/
-outputs/               # gitignore 大文件
+outputs/               # gitignore 大文件与 *.db
+outputs/db/            # SQLite app.db（主数据轨，可重建）
 ```
 
 | 类型 | 目录 |
@@ -264,13 +278,14 @@ outputs/               # gitignore 大文件
 
 ## 7. 数据与特征
 
-1. 原始：`data/digital_marketing_campaign_dataset.csv` 只读。  
-2. **丢弃入模：** `CustomerID`、`AdvertisingPlatform`、`AdvertisingTool`。  
-3. **质量须审计：** `EmailClicks > EmailOpens`；`WebsiteVisits==0` 仍有深度指标。主策略：保留 + flag（`email_inconsistent`、`invalid_web_metrics_flag`）；变更须报告 + CHANGE。  
-4. **ConversionRate：** 主模型默认不含；E5 消融。  
-5. **划分：** 分层；先 split 后 fit；SMOTE/scaler/encoder 仅 train。  
-6. 导出 `feature_schema.json`；推理校验字段。  
-7. 展示数字优先来自 metrics 产物，禁止前端/Agent 口算写死。  
+1. 原始：`data/digital_marketing_campaign_dataset.csv` 只读真相源。  
+2. **主数据轨：** CSV → `python scripts/import_campaigns.py` → `outputs/db/app.db`（`campaigns` / `import_batches`）；默认全量重建；`CustomerID` **可存可查、永不入模**。  
+3. **丢弃入模：** `CustomerID`、`AdvertisingPlatform`、`AdvertisingTool`（常数广告字段可入库展示）。  
+4. **质量须审计：** `EmailClicks > EmailOpens`；`WebsiteVisits==0` 仍有深度指标。主策略：保留 + flag（`email_inconsistent`、`invalid_web_metrics_flag`）；变更须报告 + CHANGE。  
+5. **ConversionRate：** 入库；主模型默认不含；E5 消融。  
+6. **划分：** 分层；先 split 后 fit；SMOTE/scaler/encoder 仅 train。  
+7. 导出 `feature_schema.json`；推理校验字段。  
+8. 展示数字优先来自 metrics 产物，禁止前端/Agent 口算写死。
 
 **字段角色摘要：**
 
@@ -445,12 +460,18 @@ PiRuntime.run()
 
 | 文件 | 内容 |
 |------|------|
-| `config/settings.yaml` | 路径、seed、split、日志 |
-| `config/features.yaml` | 丢弃列、可选列、分箱 |
-| `config/model.yaml` | 超参、阈值目标 |
-| `config/agent.yaml` | runtime、LLM、pi.executable、工具开关、审计路径 |
+| `config/settings.yaml` | 路径、`database.path`、API CORS、seed、日志 |
+| `config/features.yaml` | 丢弃列、可选列、分箱（后续） |
+| `config/model.yaml` | 超参、阈值目标（后续） |
+| `config/agent.yaml` | runtime、LLM、pi.executable、工具开关、审计路径（后续） |
 
-**环境变量：** `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `DIGITAL_ROOT` / `DIGITAL_AGENT_RUNTIME`
+**`settings.yaml` 关键：**
+
+- `paths.raw_csv` / `paths.outputs_dir` / `paths.db_dir`  
+- `database.path`：默认 `outputs/db/app.db`（相对项目根）  
+- `api.prefix`：`/api/v1`；`api.cors_origins`：Vite 开发源  
+
+**环境变量：** `DIGITAL_ROOT` / `DIGITAL_DATABASE_URL` / `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `DIGITAL_AGENT_RUNTIME`
 
 **agent.yaml 示意：**
 
@@ -502,14 +523,19 @@ audit:
 
 禁止虚假完成：测试失败不称完成；跳过步骤须声明。
 
-**复现命令目标：**
+**复现命令（当前脚手架 + 后续目标）：**
 
 ```text
-pip install -r requirements.txt
-python scripts/run_all.py
-python scripts/setup_pi_cli.py    # 可选
-uvicorn src.digital_marketing.api.main:app --reload --port 8000
+pip install -e ".[dev]"
+python scripts/init_db.py
+python scripts/import_campaigns.py
+pytest
+uvicorn digital_marketing.api.main:app --reload --port 8000
 cd frontend && npm install && npm run dev
+
+# 后续
+python scripts/run_all.py
+python scripts/setup_pi_cli.py    # 可选，项目内 Pi
 ```
 
 ---
@@ -556,6 +582,9 @@ type：feat/fix/docs/refactor/test/chore/perf/style；scope 为 kebab-case。
 |------|------|------|
 | 后端 | FastAPI | 轻量、OpenAPI、毕设友好 |
 | 前端 | Vue3+Element Plus | 见 DESIGN；交付快 |
+| **营销主数据** | **SQLite `outputs/db/app.db`** | 8k 行可重建缓存；查询/按 ID；CSV 仍为真相源 |
+| **分析产物** | **`outputs/` 文件** | 模型/metrics/SHAP/分群/规则/审计；不进 SQLite |
+| ORM | SQLAlchemy 2.0 + 同步 sqlite3 | 导入/脚本同步；本阶段不做 aiosqlite/Alembic |
 | 主模型 | LightGBM（后备 RF） | 表格+SHAP |
 | 主指标 | PR-AUC | 严重不平衡 |
 | Agent | 工具接地 + 可插拔 Runtime | 避免贴皮 |
@@ -563,7 +592,7 @@ type：feat/fix/docs/refactor/test/chore/perf/style；scope 为 kebab-case。
 | 登录 | 默认无 | 控范围 |
 | ConversionRate | 默认不入模 | 降泄漏质疑 |
 
-**落选：** 仅 Jupyter；强绑 LangChain 全家桶；全局 Pi；以 Accuracy 优化。
+**落选：** 仅 Jupyter；强绑 LangChain 全家桶；全局 Pi；以 Accuracy 优化；metrics 进 SQLite；`app.db` 放 `data/`。
 
 ---
 
@@ -571,6 +600,8 @@ type：feat/fix/docs/refactor/test/chore/perf/style；scope 为 kebab-case。
 
 ```text
 □ 目录归位正确？
+□ 未覆盖 data/ 原始 CSV？app.db 不在 data/？
+□ metrics/模型未误写入 SQLite？
 □ 未违反指标/泄漏/ID 规则？
 □ Pi 仍只指向 tools/pi-cli？
 □ Agent 数字可追溯？

@@ -26,6 +26,23 @@
 
 ## 变更日志
 
+## 2026-07-30 — 框架搭建 + SQLite 主数据 + Vue 空壳
+
+- **类型：** feat
+- **范围：** `src/digital_marketing/**`、`scripts/`、`tests/`、`frontend/`、`config/`、`pyproject.toml`、文档
+- **摘要：**
+  - 可安装包 `digital_marketing`：core（paths/config/logging）、data（SQLAlchemy 模型 + 同步 sqlite + CSV 导入）、api（CORS、request_id、`GET /api/v1/health` envelope）
+  - **双轨存储：** CSV 真相 → `outputs/db/app.db`（`campaigns` / `import_batches`）；分析产物仍走 `outputs/` 文件，metrics **不进** SQLite
+  - 脚本：`scripts/init_db.py`、`scripts/import_campaigns.py`；导入 8000 行通过
+  - 测试：`pytest` 5 passed（import + health）
+  - Vue3 空壳：Layout 健康点、侧栏占位、HomeView 联调 health；`VITE_API_BASE_URL`
+  - 文档：AGENTS v0.3 双轨 + ADR SQLite；README 上手；CLAUDE 命令与状态更新
+- **原因：** 用户确认第一步用 SQLite 存营销主数据，范围 = 后端骨架 + Vue 空壳
+- **影响：** 后续清洗/训练/业务页可基于本骨架扩展；DB 可删库重建
+- **破坏性：** 无（此前无业务实现）
+- **关联：** 计划「第一步：框架搭建 + SQLite 初始化」
+- **验证：** `pip install -e ".[dev]"`；import 8000 行；`pytest` 5 passed；`GET /api/v1/health` 返回 ok + campaigns_count=8000；`frontend npm run build` 通过。未在本机长期跑 `npm run dev` 浏览器手点（构建已过）
+
 ## 2026-07-30 — 新增 CLAUDE.md
 
 - **类型：** docs

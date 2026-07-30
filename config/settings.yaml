@@ -1,0 +1,24 @@
+app:
+  name: digital-marketing
+  version: "0.1.0"
+  env: dev
+
+paths:
+  data_dir: data
+  raw_csv: data/digital_marketing_campaign_dataset.csv
+  outputs_dir: outputs
+  db_dir: outputs/db
+  db_filename: app.db
+
+database:
+  # 相对项目根；可被 DIGITAL_DATABASE_URL 覆盖
+  path: outputs/db/app.db
+  echo: false
+
+api:
+  prefix: /api/v1
+  cors_origins:
+    - http://127.0.0.1:5173
+    - http://localhost:5173
+
+seed: 42
