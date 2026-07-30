@@ -12,12 +12,20 @@ body,
 }
 
 body {
-  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
-  background: #f5f7fa;
-  color: #303133;
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
   -webkit-font-smoothing: antialiased;
 }
 
 button {
   font: inherit;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: #f0f2f5;
+  padding: 1px 4px;
+  border-radius: 3px;
 }

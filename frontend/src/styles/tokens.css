@@ -1,0 +1,112 @@
+/* 设计 token — 对齐 DESIGN.md / pen/ui.pen */
+:root {
+  --color-bg: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-border: #e4e7ed;
+  --color-text: #303133;
+  --color-text-secondary: #909399;
+  --color-text-inverse: #ffffff;
+  --color-primary: #409eff;
+  --color-success: #67c23a;
+  --color-warning: #e6a23c;
+  --color-danger: #f56c6c;
+  --color-info: #909399;
+  --color-shap-pos: #409eff;
+  --color-shap-neg: #f56c6c;
+  --color-chart-1: #409eff;
+  --color-chart-2: #67c23a;
+  --color-chart-3: #e6a23c;
+  --color-chart-4: #f56c6c;
+  --color-chart-5: #909399;
+  --color-chart-6: #b37feb;
+  --color-axis: #c0c4cc;
+
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-title: 22px;
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-pill: 999px;
+
+  --header-height: 56px;
+  --sider-width: 200px;
+  --content-max-width: 1280px;
+  --chart-height: 280px;
+
+  --font-mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
+  --font-sans: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.page {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.page-header h1 {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.page-header .desc {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.section-card {
+  margin-bottom: var(--space-md);
+  border-radius: var(--radius-md);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+.muted {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+
+.disclaimer {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  padding: var(--space-sm) var(--space-md);
+  background: #fdf6ec;
+  border: 1px solid #faecd8;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}

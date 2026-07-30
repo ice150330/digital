@@ -17,24 +17,46 @@ export const http = axios.create({
   timeout: 30000,
 })
 
+function unwrapError(err: unknown): Error {
+  const ax = err as AxiosError<ApiEnvelope<unknown>>
+  if (ax.response?.data?.error?.message) {
+    return new Error(ax.response.data.error.message)
+  }
+  if (err instanceof Error && err.message) {
+    return err
+  }
+  return new Error('网络错误，请确认后端已启动')
+}
+
 /** 解析 envelope；失败时抛出中文错误信息 */
-export async function getData<T>(path: string): Promise<{ data: T; requestId: string }> {
+export async function getData<T>(path: string, params?: Record<string, unknown>): Promise<{ data: T; requestId: string }> {
   try {
-    const resp = await http.get<ApiEnvelope<T>>(path)
+    const resp = await http.get<ApiEnvelope<T>>(path, { params })
     const body = resp.data
     if (!body.ok || body.data == null) {
-      const msg = body.error?.message || '请求失败'
-      throw new Error(msg)
+      throw new Error(body.error?.message || '请求失败')
     }
     return { data: body.data, requestId: body.request_id }
   } catch (err) {
-    const ax = err as AxiosError<ApiEnvelope<unknown>>
-    if (ax.response?.data?.error?.message) {
-      throw new Error(ax.response.data.error.message)
+    throw unwrapError(err)
+  }
+}
+
+export async function postData<T>(
+  path: string,
+  payload?: unknown,
+  opts?: { timeout?: number },
+): Promise<{ data: T; requestId: string }> {
+  try {
+    const resp = await http.post<ApiEnvelope<T>>(path, payload ?? {}, {
+      timeout: opts?.timeout ?? 30000,
+    })
+    const body = resp.data
+    if (!body.ok || body.data == null) {
+      throw new Error(body.error?.message || '请求失败')
     }
-    if (err instanceof Error && err.message) {
-      throw err
-    }
-    throw new Error('网络错误，请确认后端已启动')
+    return { data: body.data, requestId: body.request_id }
+  } catch (err) {
+    throw unwrapError(err)
   }
 }
