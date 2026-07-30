@@ -28,4 +28,6 @@ class HealthData(BaseModel):
     version: str
     database_ok: bool
     campaigns_count: int | None = None
+    artifacts_ok: bool = False
+    default_run_id: str | None = None
     message: str | None = None

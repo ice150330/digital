@@ -6,6 +6,8 @@ export interface HealthData {
   version: string
   database_ok: boolean
   campaigns_count: number | null
+  artifacts_ok: boolean
+  default_run_id: string | null
   message: string | null
 }
 
