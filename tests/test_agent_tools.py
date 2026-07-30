@@ -1,0 +1,75 @@
+"""Agent 工具与 chat 契约测试。"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from digital_marketing.agent.grounding import REQUIRED_SECTIONS
+from digital_marketing.agent.pi_runtime import pi_executable_path, pi_status
+from digital_marketing.agent.tools import list_tools, run_tool
+from digital_marketing.api.main import create_app
+from digital_marketing.core.config import clear_settings_cache
+from digital_marketing.core.paths import project_root
+from digital_marketing.data.db import reset_engine
+
+
+def test_tool_registry_has_p0():
+    names = set(list_tools())
+    for t in (
+        "get_dataset_profile",
+        "get_data_quality_issues",
+        "conversion_by_dimension",
+        "get_model_metrics",
+        "get_feature_schema",
+        "predict_proba",
+        "explain_global",
+        "explain_customer",
+    ):
+        assert t in names
+
+
+def test_pi_path_under_tools_pi_cli():
+    path = pi_executable_path()
+    root = project_root().resolve()
+    assert "tools" in path.parts and "pi-cli" in path.parts
+    path.resolve().relative_to((root / "tools" / "pi-cli").resolve())
+    st = pi_status()
+    assert st["valid_prefix"] is True
+
+
+@pytest.fixture()
+def agent_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    root = project_root()
+    monkeypatch.setenv("DIGITAL_ROOT", str(root))
+    monkeypatch.setenv("DIGITAL_DATABASE_URL", f"sqlite:///{(tmp_path / 'a.db').as_posix()}")
+    clear_settings_cache()
+    reset_engine()
+    app = create_app()
+    with TestClient(app) as c:
+        yield c
+    reset_engine()
+    clear_settings_cache()
+
+
+def test_agent_chat_contract(agent_client: TestClient):
+    r = agent_client.post(
+        "/api/v1/agent/chat",
+        json={"message": "请给出数据规模和模型 PR-AUC"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is True
+    data = body["data"]
+    for k in REQUIRED_SECTIONS:
+        assert k in data
+    assert data["tool_trace"]
+    assert data["session_id"]
+    assert data["runtime"] in {"local", "template", "pi"}
+
+
+def test_unknown_tool():
+    out = run_tool("not_a_real_tool")
+    assert out["ok"] is False

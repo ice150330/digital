@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from digital_marketing import __version__
+from digital_marketing.api.routes_agent import router as agent_router
 from digital_marketing.api.routes_data import router as data_router
 from digital_marketing.api.routes_explain import router as explain_router
 from digital_marketing.api.routes_health import router as health_router
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(data_router, prefix=prefix)
     app.include_router(models_router, prefix=prefix)
     app.include_router(explain_router, prefix=prefix)
+    app.include_router(agent_router, prefix=prefix)
     return app
 
 
