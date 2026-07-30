@@ -17,8 +17,12 @@ threshold:
   grid_stop: 0.95
   grid_step: 0.01
 
+# 成本敏感阈值扫描（期望成本 = FP×cost_fp + FN×cost_fn，相对比较口径）
+cost:
+  fp: 1.0
+  fn: 5.0
+
 experiments:
-  # 第一刀最小闭环：E0 / E1 / E3
   - id: E0
     name: dummy_majority
     kind: dummy
@@ -26,11 +30,49 @@ experiments:
     name: logistic_balanced
     kind: logistic
     class_weight: balanced
+  - id: E2
+    name: lightgbm_default
+    kind: lightgbm
+    fallback: random_forest
   - id: E3
     name: lightgbm_balanced
     kind: lightgbm
     class_weight: balanced
     # 若 lightgbm 不可用则回退 random_forest
     fallback: random_forest
+  - id: E4
+    name: lightgbm_smote
+    kind: lightgbm
+    class_weight: balanced
+    fallback: random_forest
+    smote: true            # 仅 train；需 imbalanced-learn（[ml] 可选依赖）
+  - id: E5
+    name: lightgbm_plus_conversionrate
+    kind: lightgbm
+    class_weight: balanced
+    fallback: random_forest
+    feature_variant: with_conversion_rate   # 泄漏消融：仅 scripts/06_train_full.py
+    ablation: conversion_rate
+    includes_conversion_rate: true
+  - id: E6
+    name: lightgbm_no_quality_flags
+    kind: lightgbm
+    class_weight: balanced
+    fallback: random_forest
+    feature_variant: no_quality_flags       # 消融：仅 scripts/06_train_full.py
+    ablation: quality_flags
+  - id: E7
+    name: stacking_lgbm_rf_lr
+    kind: stacking          # LGBM+RF+LR → meta LR（内部 5-fold OOF，仅 train）
+    class_weight: balanced
+  - id: E8
+    name: lightgbm_calibrated
+    kind: lightgbm
+    class_weight: balanced
+    fallback: random_forest
+    calibrate: true         # valid 上 Platt/Isotonic 择优，校准后概率搜阈值
 
-# 后续可开：E2 RF/LGBM 默认、E4 SMOTE、E5 ConversionRate 消融
+# 说明：
+# - E5/E6 为消融实验，产物打 ablation 标记，永不参选默认 run
+# - 02_train_classify.py 只跑「基础实验」（无 feature_variant/smote/calibrate 的条目）
+# - 全量矩阵请用 scripts/06_train_full.py

@@ -71,6 +71,15 @@ def main() -> int:
     model_cfg = load_model_config()
     seed = int(model_cfg.get("seed", settings.seed))
     experiments = list(model_cfg.get("experiments") or [])
+    # 02 只跑基础实验；消融/Stacking/SMOTE/校准请用 scripts/06_train_full.py
+    experiments = [
+        e
+        for e in experiments
+        if not e.get("feature_variant")
+        and not e.get("smote")
+        and not e.get("calibrate")
+        and str(e.get("kind")) != "stacking"
+    ]
     if args.exps.strip():
         want = {x.strip() for x in args.exps.split(",") if x.strip()}
         experiments = [e for e in experiments if str(e.get("id")) in want]
