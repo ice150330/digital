@@ -198,3 +198,26 @@ def test_metrics_missing_run(artifact_client: TestClient) -> None:
     body = r.json()
     assert body["ok"] is False
     assert body["error"]["code"] == "ARTIFACT_MISSING"
+
+
+def test_predict_batch_ok(artifact_client: TestClient) -> None:
+    r = artifact_client.post(
+        "/api/v1/models/predict/batch",
+        json={"customer_ids": [1, 2]},
+    )
+    assert r.status_code == 200
+    data = r.json()["data"]
+    assert data["n_ok"] >= 1
+    assert data["items"]
+    assert "proba" in data["items"][0]
+
+
+def test_predict_batch_over_limit(artifact_client: TestClient) -> None:
+    r = artifact_client.post(
+        "/api/v1/models/predict/batch",
+        json={"customer_ids": list(range(1, 250))},
+    )
+    assert r.status_code == 422
+    body = r.json()
+    assert body["ok"] is False
+    assert body["error"]["code"] == "VALIDATION_ERROR"

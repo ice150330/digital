@@ -13,7 +13,7 @@ import {
   ElTag,
 } from 'element-plus'
 import { fetchFeatureMeta, type FeatureMetaData } from '../api/data'
-import { predict, type PredictData } from '../api/models'
+import { predict, predictBatch, type BatchPredictData, type PredictData } from '../api/models'
 import { explainCustomer, type CustomerExplainData } from '../api/explain'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
@@ -29,6 +29,9 @@ const customerId = ref<number | null>(8000)
 const form = reactive<Record<string, string | number>>({})
 const pred = ref<PredictData | null>(null)
 const expl = ref<CustomerExplainData | null>(null)
+const batchIds = ref('8000,8001,8002')
+const batchResult = ref<BatchPredictData | null>(null)
+const batchLoading = ref(false)
 
 function applyDefaults(m: FeatureMetaData) {
   Object.keys(form).forEach((k) => delete form[k])
@@ -72,6 +75,26 @@ async function runPredict(byId: boolean) {
     error.value = e instanceof Error ? e.message : '预测失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function runBatch() {
+  batchLoading.value = true
+  error.value = null
+  batchResult.value = null
+  try {
+    const ids = batchIds.value
+      .split(/[,，\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => Number(s))
+      .filter((n) => Number.isFinite(n))
+    const r = await predictBatch({ customer_ids: ids })
+    batchResult.value = r.data
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : '批量预测失败'
+  } finally {
+    batchLoading.value = false
   }
 }
 
@@ -182,6 +205,31 @@ onMounted(loadMeta)
           title="尚未预测"
           description="输入 CustomerID（如 8000）或使用样例特征后点击预测。"
         />
+
+        <ElCard shadow="never" class="section-card">
+          <template #header>批量预测（上限 200）</template>
+          <p class="muted" style="margin-top: 0">逗号分隔 CustomerID；结果仅供名单筛选参考，非因果。</p>
+          <ElSpace wrap style="width: 100%">
+            <ElInput v-model="batchIds" style="min-width: 240px" placeholder="8000,8001,8002" />
+            <ElButton type="primary" :loading="batchLoading" @click="runBatch">批量预测</ElButton>
+          </ElSpace>
+          <div v-if="batchResult" class="batch-box">
+            <div class="muted mono">
+              ok={{ batchResult.n_ok }}/{{ batchResult.n_requested }} · thr={{ formatProba(batchResult.threshold) }} ·
+              {{ batchResult.run_id }}
+            </div>
+            <ul class="batch-list">
+              <li v-for="(it, i) in batchResult.items" :key="i" class="mono">
+                id={{ it.customer_id }} proba={{ formatProba(it.proba) }} label={{ it.label }}
+              </li>
+            </ul>
+            <ul v-if="batchResult.errors?.length" class="batch-list err">
+              <li v-for="(er, i) in batchResult.errors" :key="'e' + i">
+                id={{ er.customer_id }} {{ er.message }}
+              </li>
+            </ul>
+          </div>
+        </ElCard>
       </div>
     </div>
   </div>
@@ -211,5 +259,17 @@ onMounted(loadMeta)
 .big {
   font-size: 28px;
   font-weight: 700;
+}
+.batch-box {
+  margin-top: 12px;
+}
+.batch-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  max-height: 160px;
+  overflow: auto;
+}
+.batch-list.err {
+  color: var(--el-color-danger);
 }
 </style>

@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 本科毕设仓库：**数字营销转化分析 + 工具接地 AI Copilot**。
 
-**已落地：** M0 + 清洗/split + E0/E1/E3 训练 + **全局/局部解释 + P0 业务 API**（overview/metrics/predict/explain）+ `run_all`。  
-**未落地：** 完整业务页、Agent/Pi、分群/规则。
+**已落地：** M0 + 清洗/split + E0/E1/E3 + SHAP/P0 API + **前端七路由业务页** + **Local Agent** + **分群/规则** + **batch 预测** + **项目内 Pi setup/status**。  
+**未落地/可打磨：** 演示 checklist 深度打磨、论文表导出、P2（默认不做）。
 
 权威约束不在本文件重复展开：
 
@@ -41,14 +41,23 @@ python scripts/02_train_classify.py
 # 全局解释 + 样例缓存
 python scripts/03_explain_shap.py
 
-# 一键（清洗→训练→解释）
+# 分群 / 关联规则（P1）
+python scripts/04_train_cluster.py
+python scripts/05_mine_rules.py
+
+# 一键（清洗→训练→解释；可选 P1）
 python scripts/run_all.py
+python scripts/run_all.py --with-p1
+
+# 项目内 Pi stub/安装（禁止全局 pi）
+python scripts/setup_pi_cli.py
 
 # 测试
 pytest
 pytest tests/test_api_core.py
-pytest tests/test_clean_quality.py
-pytest tests/test_train_metrics.py
+pytest tests/test_agent_tools.py
+pytest tests/test_segment_rules.py
+pytest tests/test_pi_path.py
 
 # API（包入口，非 src. 前缀）
 uvicorn digital_marketing.api.main:app --reload --port 8000
@@ -56,9 +65,6 @@ uvicorn digital_marketing.api.main:app --reload --port 8000
 # 前端
 cd frontend && npm install && npm run dev
 cd frontend && npm run build
-
-# 后续（尚未实现）
-# python scripts/setup_pi_cli.py   # 仅项目内 Pi，禁止全局 pi
 ```
 
 前端包管理锁定 **npm**（`frontend/package-lock.json`）。LLM Key 仅环境变量 / 本地 `.env`（gitignore），仓库只留 `.env.example`。
@@ -107,8 +113,10 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 - **已实现：**
   - `GET /health`（`database_ok`、`campaigns_count`、`artifacts_ok`、`default_run_id`）
   - `GET /data/overview`、`GET /meta/features`
-  - `GET /models/metrics`、`GET /models/metrics/{run_id}`、`POST /models/predict`
+  - `GET /models/metrics`、`GET /models/metrics/{run_id}`、`POST /models/predict`、`POST /models/predict/batch`
   - `GET /explain/global`、`POST /explain/customer`
+  - `GET /segments`、`POST /segments/assign`、`GET /rules`
+  - `POST /agent/chat`、`GET /agent/sessions/{id}`、`POST /agent/runtime`、`GET /agent/pi/status`
 - 预测须带回 `proba` / `label` / `threshold` / `run_id`；解释带回 `top_features` + `method`。
 - 默认 run：非 Dummy 中 PR-AUC 最高，近并列偏好树/LightGBM（解释友好）。
 - Agent 输出契约：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace`。
@@ -118,7 +126,7 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 ## 前端要点（细节见 DESIGN）
 
 - 栈：**Vue 3 + Vite + Element Plus + ECharts + axios**（勿擅自换 React 等）。当前空壳已接 Element Plus + axios + vue-router；ECharts 待业务页。
-- 路由：已挂 `/` 总览脚手架；其余 `/models`、`/customers`、`/segments`、`/rules`、`/agent`、`/about` 待建。
+- 路由：`/` `/models` `/customers` `/segments` `/rules` `/agent` `/about` 均已挂业务或真数据页。
 - 数字一律来自后端；禁止前端假造 AUC。`baseURL` 用 `VITE_API_BASE_URL`。
 - 组件视觉参考：`pen/ui.pen`（KpiCard、ShapBarChart、ToolTracePanel 等）。
 
@@ -134,6 +142,5 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 
 ## 实现优先级提示
 
-P0 下一步：**Vue 总览/模型/客户/About 业务页**、LocalToolRuntime + `/agent`。  
-P1：分群、关联规则、项目内 Pi 插拔。  
-永不砍：防泄漏叙述、PR-AUC 主指标、可运行 API、工具接地 Agent。
+P0/P1 主线已齐；下一优先：**阶段 8 打磨**（演示 checklist、README 从零路径、测试补强）。  
+永不砍：防泄漏叙述、PR-AUC 主指标、可运行 API、工具接地 Agent、Pi 仅 `tools/pi-cli/`。

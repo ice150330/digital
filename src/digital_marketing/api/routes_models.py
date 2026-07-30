@@ -6,7 +6,13 @@ from fastapi import APIRouter, Request
 
 from digital_marketing.api.errors import from_artifact_error
 from digital_marketing.schemas.common import Envelope
-from digital_marketing.schemas.models import MetricsListData, PredictData, PredictRequest
+from digital_marketing.schemas.models import (
+    BatchPredictData,
+    BatchPredictRequest,
+    MetricsListData,
+    PredictData,
+    PredictRequest,
+)
 from digital_marketing.services import artifacts
 from digital_marketing.services.artifacts import ArtifactError
 
@@ -52,5 +58,20 @@ def models_predict(body: PredictRequest, request: Request):
             customer_id=raw.get("customer_id"),
         )
         return Envelope[PredictData](ok=True, data=data, error=None, request_id=request_id)
+    except ArtifactError as e:
+        return from_artifact_error(request, e)
+
+
+@router.post("/models/predict/batch", response_model=Envelope[BatchPredictData])
+def models_predict_batch(body: BatchPredictRequest, request: Request):
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        raw = artifacts.predict_batch(
+            customer_ids=body.customer_ids,
+            rows=body.rows,
+            run_id=body.run_id,
+        )
+        data = BatchPredictData.model_validate(raw)
+        return Envelope[BatchPredictData](ok=True, data=data, error=None, request_id=request_id)
     except ArtifactError as e:
         return from_artifact_error(request, e)

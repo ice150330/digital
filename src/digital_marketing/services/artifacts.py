@@ -225,6 +225,71 @@ def predict_row(
     }
 
 
+# 批量预测条数上限（防止误用扫全库）
+BATCH_PREDICT_MAX = 200
+
+
+def predict_batch(
+    *,
+    customer_ids: list[int] | None = None,
+    rows: list[dict[str, Any]] | None = None,
+    run_id: str | None = None,
+    max_items: int = BATCH_PREDICT_MAX,
+) -> dict[str, Any]:
+    """批量预测：customer_ids 或 features 行列表，超限报错。"""
+    items_in: list[tuple[int | None, dict[str, Any] | None]] = []
+    if customer_ids:
+        items_in.extend((int(cid), None) for cid in customer_ids)
+    if rows:
+        for r in rows:
+            if "customer_id" in r and len(r) == 1:
+                items_in.append((int(r["customer_id"]), None))
+            else:
+                cid = r.get("customer_id")
+                feats = {k: v for k, v in r.items() if k != "customer_id"}
+                items_in.append((int(cid) if cid is not None else None, feats or None))
+    if not items_in:
+        raise ArtifactError("VALIDATION_ERROR", "需要 customer_ids 或 rows")
+    if len(items_in) > max_items:
+        raise ArtifactError(
+            "VALIDATION_ERROR",
+            f"批量条数超过上限 {max_items}，当前 {len(items_in)}",
+            {"max_items": max_items, "n": len(items_in)},
+        )
+
+    rt = load_runtime(run_id)
+    thr = float(rt["meta"].get("threshold", 0.5))
+    results: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    for cid, feats in items_in:
+        try:
+            raw = predict_row(customer_id=cid, features=feats, run_id=rt["run_id"])
+            results.append(
+                {
+                    "proba": raw["proba"],
+                    "label": raw["label"],
+                    "threshold": thr,
+                    "run_id": raw["run_id"],
+                    "model_name": raw["model_name"],
+                    "customer_id": raw.get("customer_id") if raw.get("customer_id") is not None else cid,
+                }
+            )
+        except ArtifactError as e:
+            errors.append({"customer_id": cid, "code": e.code, "message": e.message})
+    return {
+        "run_id": rt["run_id"],
+        "model_name": rt["meta"].get("model_name") or rt["run_id"],
+        "threshold": thr,
+        "n_requested": len(items_in),
+        "n_ok": len(results),
+        "n_error": len(errors),
+        "items": results,
+        "errors": errors,
+        "max_items": max_items,
+        "note": "批量预测仅供名单筛选参考，非因果 uplift",
+    }
+
+
 def explain_customer(
     *,
     customer_id: int | None = None,

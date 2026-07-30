@@ -42,3 +42,24 @@ export function predict(body: {
 }) {
   return postData<PredictData>('/models/predict', body)
 }
+
+export interface BatchPredictData {
+  run_id: string
+  model_name: string
+  threshold: number
+  n_requested: number
+  n_ok: number
+  n_error: number
+  items: PredictData[]
+  errors: Array<{ customer_id?: number; code?: string; message?: string }>
+  max_items: number
+  note?: string
+}
+
+export function predictBatch(body: {
+  customer_ids?: number[]
+  rows?: Record<string, unknown>[]
+  run_id?: string
+}) {
+  return postData<BatchPredictData>('/models/predict/batch', body)
+}
