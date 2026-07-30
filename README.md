@@ -21,7 +21,9 @@
 - FastAPI `GET /api/v1/health`（统一 envelope）
 - Vue3 空壳：顶栏健康点 + 侧栏占位 + 首页联调 health
 
-**尚未实现：** 清洗/训练、SHAP、业务 API、完整业务页、Agent/Pi。
+**已实现：** 清洗/split；E0/E1/E3 训练；解释产物；P0 API（overview/metrics/predict/explain）；`run_all`。  
+
+**尚未实现：** 完整业务页、Agent/Pi、分群/规则。
 
 ## 双轨存储（必读）
 
@@ -78,13 +80,18 @@ npm run dev
 | `python scripts/init_db.py` | 创建/确认 `outputs/db/app.db` 表结构 |
 | `python scripts/import_campaigns.py` | 从 `data/*.csv` 导入 campaigns（默认 force 重建） |
 | `python scripts/import_campaigns.py --no-force` | 非强制（行为以实现为准） |
+| `python scripts/01_clean_data.py` | 清洗 → `outputs/processed/` + split + 质量报告 |
+| `python scripts/02_train_classify.py` | E0/E1/E3 训练 → outputs/models 与 metrics |
+| `python scripts/03_explain_shap.py` | 全局解释 → outputs/explain |
+| `python scripts/run_all.py` | 清洗 → 训练 → 解释 |
 | `pytest` | 后端测试 |
 
 ## 技术栈（锁定）
 
 - Python 3.11+、FastAPI、SQLAlchemy 2.0（同步 sqlite3）
 - Vue 3 + Vite + TypeScript + Element Plus + axios + vue-router
-- 后续：LightGBM/RF、SHAP、项目内 Pi（`tools/pi-cli/`，禁止全局 `pi`）
+- 分类：scikit-learn、LightGBM（E0/E1/E3）；解释优先 `pred_contrib`（可选 shap）
+- 后续：完整业务页、Agent、项目内 Pi（`tools/pi-cli/`，禁止全局 `pi`）
 
 ## 许可与数据
 

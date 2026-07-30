@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 本科毕设仓库：**数字营销转化分析 + 工具接地 AI Copilot**。
 
-**已落地（M0 脚手架）：** 可安装 Python 包、`outputs/db/app.db` SQLite 主数据导入、FastAPI health envelope、Vue3 空壳联调。  
-**未落地：** 清洗/训练/SHAP/分群/规则、业务 API、完整业务页、Agent/Pi。
+**已落地：** M0 + 清洗/split + E0/E1/E3 训练 + **全局/局部解释 + P0 业务 API**（overview/metrics/predict/explain）+ `run_all`。  
+**未落地：** 完整业务页、Agent/Pi、分群/规则。
 
 权威约束不在本文件重复展开：
 
@@ -31,10 +31,24 @@ pip install -e ".[dev]"
 python scripts/init_db.py
 python scripts/import_campaigns.py          # 默认 force 全量重建
 
+# 清洗 + 分层 split + 质量报告
+python scripts/01_clean_data.py
+python scripts/00_profile_data.py --from-clean --write-report
+
+# 分类实验 E0/E1/E3 → outputs/models|metrics
+python scripts/02_train_classify.py
+
+# 全局解释 + 样例缓存
+python scripts/03_explain_shap.py
+
+# 一键（清洗→训练→解释）
+python scripts/run_all.py
+
 # 测试
 pytest
-pytest tests/test_health.py
-pytest tests/test_import_campaigns.py
+pytest tests/test_api_core.py
+pytest tests/test_clean_quality.py
+pytest tests/test_train_metrics.py
 
 # API（包入口，非 src. 前缀）
 uvicorn digital_marketing.api.main:app --reload --port 8000
@@ -44,7 +58,6 @@ cd frontend && npm install && npm run dev
 cd frontend && npm run build
 
 # 后续（尚未实现）
-# python scripts/run_all.py
 # python scripts/setup_pi_cli.py   # 仅项目内 Pi，禁止全局 pi
 ```
 
@@ -91,8 +104,13 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 ## API 与 Agent
 
 - 前缀 `/api/v1`；统一 envelope：`{ ok, data, error, request_id }`。
-- **已实现：** `GET /api/v1/health`（含 `database_ok`、`campaigns_count`）。
+- **已实现：**
+  - `GET /health`（`database_ok`、`campaigns_count`、`artifacts_ok`、`default_run_id`）
+  - `GET /data/overview`、`GET /meta/features`
+  - `GET /models/metrics`、`GET /models/metrics/{run_id}`、`POST /models/predict`
+  - `GET /explain/global`、`POST /explain/customer`
 - 预测须带回 `proba` / `label` / `threshold` / `run_id`；解释带回 `top_features` + `method`。
+- 默认 run：非 Dummy 中 PR-AUC 最高，近并列偏好树/LightGBM（解释友好）。
 - Agent 输出契约：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace`。
 - Runtime：默认 `local`；`pi` 仅 `tools/pi-cli/`（`config/agent.yaml` → `pi.executable`）；无 Key 可 `template`。
 - 审计：`outputs/agent_logs/*.jsonl`；会话：`outputs/agent_sessions/`。
@@ -116,6 +134,6 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 
 ## 实现优先级提示
 
-P0 下一步：数据清洗与质量报告、分类实验（含 Dummy）、SHAP、FastAPI 核心端点、Vue 总览/模型/客户/Agent、LocalToolRuntime。  
+P0 下一步：**Vue 总览/模型/客户/About 业务页**、LocalToolRuntime + `/agent`。  
 P1：分群、关联规则、项目内 Pi 插拔。  
 永不砍：防泄漏叙述、PR-AUC 主指标、可运行 API、工具接地 Agent。

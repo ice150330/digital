@@ -26,6 +26,57 @@
 
 ## 变更日志
 
+## 2026-07-30 — 阶段3：SHAP/贡献解释 + P0 业务 API + run_all
+
+- **类型：** feat
+- **范围：** `explain/`、`services/artifacts.py`、`api/routes_{data,models,explain}.py`、`schemas/`、`scripts/03_explain_shap.py`、`scripts/run_all.py`、tests
+- **摘要：**
+  - 全局/局部解释：LightGBM `pred_contrib` 优先，TreeExplainer/线性 coef 代理回退（兼容本机 shap+matplotlib 与 NumPy2 冲突）
+  - 产物门面 `services/artifacts.py`：overview、metrics、predict、explain
+  - API：`GET /data/overview`、`GET /meta/features`、`GET /models/metrics`、`GET /models/metrics/{run_id}`、`POST /models/predict`、`GET /explain/global`、`POST /explain/customer`
+  - `scripts/03_explain_shap.py`、`scripts/run_all.py`（clean→train→explain）
+- **原因：** 全量计划阶段 3；先产物后 API
+- **影响：** 前端可联调真指标/预测/解释；metrics 仍不进 SQLite
+- **破坏性：** 无
+- **关联：** `docs/plans/2026-07-30-全量前后端开发计划.md` W3
+- **验证：** `python scripts/03_explain_shap.py`（默认 `E3_lightgbm_balanced` + `lightgbm_pred_contrib`）；`pytest` 22 passed
+- **附：** `GET /health` 增 `artifacts_ok` / `default_run_id`；近并列 PR-AUC 默认偏好树模型
+
+## 2026-07-30 — 全量前后端开发计划批准 + 第一刀开工
+
+- **类型：** docs / feat
+- **范围：** `docs/plans/`、`config/`、`src/digital_marketing/data|features|models/`、`scripts/`、`tests/`、`outputs/`、依赖
+- **摘要：**
+  - 落盘批准计划：`docs/plans/2026-07-30-全量前后端开发计划.md`（M0→答辩八波次）
+  - 配置骨架：`config/features.yaml`、`model.yaml`、`agent.yaml`
+  - 产物目录占位：processed/models/metrics/explain/segments/rules/agent_* /figures
+  - 依赖：sklearn / lightgbm / joblib / numpy；可选 `[ml]` shap/mlxtend
+  - **第一刀：** 数据 load/clean/quality/split + E0/E1/E3 训练与 metrics 落盘（见同日实现条目或本条续）
+- **原因：** 用户批准全量计划；按「产物→API→UI」先做可复现数据与分类闭环
+- **影响：** 后续 API/前端可消费 `outputs/metrics`；不扩大 P2
+- **破坏性：** 无（增量）
+- **关联：** 计划审批稿；深度计划 P0
+- **验证：** `python scripts/01_clean_data.py`（8000 行，raw 未改）；`python scripts/02_train_classify.py`（E0/E1/E3）；`pytest` 14+ passed；leaderboard 含 pr_auc
+
+## 2026-07-30 — Pencil 设计系统 v0.3 细化
+
+- **类型：** design
+- **范围：** `pen/ui.pen`
+- **摘要：**
+  - **Token 扩展：** `color-text-inverse`、图表序列 `color-chart-1..6`、概率色序 `color-proba-*`、`color-axis` / `color-code-*`；字号 `font-size-*`；布局 `header-height` / `sider-width` / `content-max-width` / `chart-height`；`space-2xl`、`radius-pill`
+  - **01 Foundations：** 增补色板第三行 + 布局尺寸 token 卡片
+  - **13 Forms Advanced：** Field/Number、Search、ThresholdSlider、Button/SampleFill·Predict、FormGroup/CustomerFeatures
+  - **14 Tables Patterns：** TableHeaderCell、TableCell/*、TableToolbar、FilterBar、FilterChip、StatStrip、MiniTable/Rules
+  - **15 Charts Extended：** PrCurveChart、RocCurveChart、MetricCompareBar、ProbaScale、ConfusionMatrix
+  - **16 Business States About：** HealthDot/Degraded、RunIdChip、ThresholdNote、ProgressBar、StepIndicator、CodeBlock、DocLinkList、AiUsageNote
+  - **00 映射表：** 追加上述组件 ↔ 前端路径行；页眉文案升为 v0.3
+  - 修复 SHAP 负向条色绑定为 `$color-shap-neg`
+- **原因：** 既有组件/配置不足以支撑后续业务页与 Agent UI 开发，对照 DESIGN 补齐缺口
+- **影响：** 前端实现可对照更完整的原子件与 token；仍为设计资源库，非整页；不替代 `DESIGN.md`
+- **破坏性：** 无代码；仅设计资源增补
+- **关联：** `DESIGN.md` v0.2.0；既有 pen 库 v0.2
+- **验证：** snapshot_layout 13–16 无裁切/重叠问题；Foundations / 映射表 / 四新区截图目视通过
+
 ## 2026-07-30 — 框架搭建 + SQLite 主数据 + Vue 空壳
 
 - **类型：** feat
