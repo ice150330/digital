@@ -1,0 +1,36 @@
+# 分类实验与评估配置
+
+seed: 42
+
+split:
+  test_size: 0.15
+  valid_size: 0.15  # 相对「非 test」剩余部分再切
+  stratify: true
+
+# 主指标顺序：pr_auc > roc_auc > f1 > confusion；accuracy 仅对照
+primary_metric: pr_auc
+
+threshold:
+  # 在 valid 上搜索，test 一次评估
+  metric: f1
+  grid_start: 0.05
+  grid_stop: 0.95
+  grid_step: 0.01
+
+experiments:
+  # 第一刀最小闭环：E0 / E1 / E3
+  - id: E0
+    name: dummy_majority
+    kind: dummy
+  - id: E1
+    name: logistic_balanced
+    kind: logistic
+    class_weight: balanced
+  - id: E3
+    name: lightgbm_balanced
+    kind: lightgbm
+    class_weight: balanced
+    # 若 lightgbm 不可用则回退 random_forest
+    fallback: random_forest
+
+# 后续可开：E2 RF/LGBM 默认、E4 SMOTE、E5 ConversionRate 消融

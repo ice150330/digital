@@ -230,9 +230,12 @@ frontend/dist/
 outputs/processed/
 outputs/models/
 outputs/metrics/
+outputs/explain/
 outputs/segments/
 outputs/rules/
 outputs/agent_logs/
 outputs/agent_sessions/
+outputs/figures/
 !outputs/**/.gitkeep
 tools/pi-cli/node_modules/
+tools/pi-cli/**/node_modules/

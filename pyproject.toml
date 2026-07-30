@@ -14,14 +14,24 @@ dependencies = [
   "pydantic>=2.0",
   "sqlalchemy>=2.0",
   "pandas>=2.0",
+  "numpy>=1.26",
   "pyyaml>=6.0",
   "python-dotenv>=1.0",
+  "scikit-learn>=1.4",
+  "joblib>=1.3",
+  "lightgbm>=4.0",
 ]
 
 [project.optional-dependencies]
 dev = [
   "pytest>=8.0",
   "httpx>=0.27",
+]
+# 可选：shap（本机 NumPy2 时可能依赖 matplotlib 冲突，解释已有 LGBM pred_contrib 回退）
+ml = [
+  "shap>=0.44",
+  "mlxtend>=0.23",
+  "imbalanced-learn>=0.12",
 ]
 
 [tool.setuptools.packages.find]

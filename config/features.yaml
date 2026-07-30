@@ -1,0 +1,41 @@
+# 特征与入模约定（主模型默认）
+# CustomerID 永不入模；Advertising* 常数丢弃；ConversionRate 主模型不含
+
+target: Conversion
+
+# 永不进入特征矩阵
+never_features:
+  - CustomerID
+  - Conversion  # 标签
+
+# 主模型默认丢弃（常数或潜在泄漏）
+drop_features:
+  - AdvertisingPlatform
+  - AdvertisingTool
+  - ConversionRate
+
+# 清洗衍生 flag（入模）
+flag_features:
+  - email_inconsistent
+  - invalid_web_metrics_flag
+
+# 类别特征（One-Hot）
+categorical_features:
+  - Gender
+  - CampaignChannel
+  - CampaignType
+
+# 数值特征
+numeric_features:
+  - Age
+  - Income
+  - AdSpend
+  - ClickThroughRate
+  - WebsiteVisits
+  - PagesPerVisit
+  - TimeOnSite
+  - SocialShares
+  - EmailOpens
+  - EmailClicks
+  - PreviousPurchases
+  - LoyaltyPoints

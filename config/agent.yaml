@@ -1,0 +1,29 @@
+# Agent / Copilot（P0 默认 local；Pi 待阶段 7）
+
+runtime: local  # local | pi | template
+
+llm:
+  # Key 仅环境变量，例如 DIGITAL_LLM_API_KEY / OPENAI_API_KEY
+  base_url: ""  # 空则 template 模式
+  model: deepseek-chat
+  timeout_sec: 60
+
+pi:
+  # 仅项目内路径；禁止 PATH / which pi
+  executable: tools/pi-cli/node_modules/.bin/pi
+  # Windows 可能为 .cmd，由 runtime 解析
+
+audit:
+  log_dir: outputs/agent_logs
+  session_dir: outputs/agent_sessions
+
+tools:
+  whitelist:
+    - get_dataset_profile
+    - get_data_quality_issues
+    - conversion_by_dimension
+    - get_model_metrics
+    - get_feature_schema
+    - predict_proba
+    - explain_global
+    - explain_customer
