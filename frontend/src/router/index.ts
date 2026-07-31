@@ -4,6 +4,12 @@ const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
+      path: '/screen',
+      name: 'screen',
+      component: () => import('../views/ScreenView.vue'),
+      meta: { title: '总览大屏', fullscreen: true },
+    },
+    {
       path: '/',
       name: 'home',
       component: () => import('../views/HomeView.vue'),

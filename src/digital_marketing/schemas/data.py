@@ -33,6 +33,66 @@ class OverviewData(BaseModel):
     notes: dict[str, Any] = Field(default_factory=dict)
 
 
+# ---------------------------------------------------------------------------
+# Stage 3：大屏 / L1 描述性聚合
+# ---------------------------------------------------------------------------
+
+
+class DashboardKpis(BaseModel):
+    n_rows: int
+    positive_rate: float
+    total_ad_spend: float
+    avg_ctr: float
+    avg_pages_per_visit: float
+    repurchase_rate: float
+
+
+class FunnelStage(BaseModel):
+    stage: str
+    label: str
+    count: int
+    rate_vs_total: float
+
+
+class HistBin(BaseModel):
+    lo: float
+    hi: float
+    count: int
+
+
+class DashboardData(BaseModel):
+    """大屏聚合数据；caliber 为口径真相源（横截面、伪漏斗非 cohort、时序不可做）。"""
+
+    kpis: DashboardKpis
+    funnel: list[FunnelStage]
+    histograms: dict[str, list[HistBin]]
+    caliber: str
+    source: str
+    notes: dict[str, Any] = Field(default_factory=dict)
+
+
+class CrossCell(BaseModel):
+    row: str
+    col: str
+    n: int
+    conversion_rate: float
+
+
+class CrossTotal(BaseModel):
+    key: str
+    n: int
+    conversion_rate: float
+
+
+class CrossMatrixData(BaseModel):
+    row_dim: str
+    col_dim: str
+    cells: list[CrossCell]
+    row_totals: list[CrossTotal]
+    col_totals: list[CrossTotal]
+    caliber: str
+
+
 class FeatureMetaData(BaseModel):
     target: str
     feature_columns_raw: list[str]
