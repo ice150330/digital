@@ -66,6 +66,8 @@ def _plan_counterfactual(message: str, cid: int | None) -> dict[str, Any] | None
     facts=F.dataset_profile,
     plan_order=18,
     stage="P0",
+    description="数据画像：样本量、正类占比、train/valid/test 划分。",
+    parameters={},
 )
 def get_dataset_profile() -> dict[str, Any]:
     ov = artifacts.get_overview()
@@ -84,6 +86,8 @@ def get_dataset_profile() -> dict[str, Any]:
     facts=F.data_quality_issues,
     plan_order=1,
     stage="P0",
+    description="数据质量问题清单与计数（email 不一致、无效 web 指标等）。",
+    parameters={},
 )
 def get_data_quality_issues() -> dict[str, Any]:
     ov = artifacts.get_overview()
@@ -102,6 +106,8 @@ def get_data_quality_issues() -> dict[str, Any]:
     facts=F.conversion_by_dimension,
     plan_order=2,
     stage="P0",
+    description="按维度汇总转化率（横截面，相关非因果）。",
+    parameters={"type": "object", "properties": {"dimension": {"description": "string：聚合维度，默认 CampaignChannel，可选 CampaignType"}}},
 )
 def conversion_by_dimension(dimension: str = "CampaignChannel") -> dict[str, Any]:
     """按维度汇总转化率（默认渠道）。"""
@@ -132,6 +138,8 @@ def conversion_by_dimension(dimension: str = "CampaignChannel") -> dict[str, Any
     facts=F.model_metrics,
     plan_order=3,
     stage="P0",
+    description="模型指标榜：PR-AUC 为主指标，Accuracy 仅对照。",
+    parameters={"type": "object", "properties": {"run_id": {"description": "string?：指定 run；缺省返回全量 leaderboard"}}},
 )
 def get_model_metrics(run_id: str | None = None) -> dict[str, Any]:
     if run_id:
@@ -151,12 +159,14 @@ def get_model_metrics(run_id: str | None = None) -> dict[str, Any]:
     facts=F.feature_schema,
     plan_order=4,
     stage="P0",
+    description="入模特征 schema（含永不入模字段：CustomerID 等）。",
+    parameters={},
 )
 def get_feature_schema() -> dict[str, Any]:
     return artifacts.meta_features()
 
 
-@tool("predict_proba", plan=_plan_predict, facts=F.predict_proba, plan_order=6, stage="P0")
+@tool("predict_proba", plan=_plan_predict, facts=F.predict_proba, plan_order=6, stage="P0", description="单客户转化概率预测（返回 proba/label/threshold/run_id）。", parameters={"type": "object", "properties": {"customer_id": {"description": "int?：客户 ID（1–8000）"}, "run_id": {"description": "string?：指定 run"}}})
 def predict_proba(customer_id: int | None = None, features: dict[str, Any] | None = None, run_id: str | None = None) -> dict[str, Any]:
     raw = artifacts.predict_row(customer_id=customer_id, features=features, run_id=run_id)
     return {
@@ -175,12 +185,14 @@ def predict_proba(customer_id: int | None = None, features: dict[str, Any] | Non
     facts=F.explain_global,
     plan_order=5,
     stage="P0",
+    description="全局 SHAP 特征重要性 Top 列表。",
+    parameters={"type": "object", "properties": {"run_id": {"description": "string?：指定 run"}}},
 )
 def explain_global(run_id: str | None = None) -> dict[str, Any]:
     return artifacts.get_global_explain(run_id)
 
 
-@tool("explain_customer", plan=_plan_explain_customer, facts=F.explain_customer, plan_order=7, stage="P0")
+@tool("explain_customer", plan=_plan_explain_customer, facts=F.explain_customer, plan_order=7, stage="P0", description="单客户局部 SHAP 解释（top_k 个特征贡献）。", parameters={"type": "object", "properties": {"customer_id": {"description": "int?：客户 ID"}, "top_k": {"description": "int?：Top 特征数，默认 8"}}})
 def explain_customer(
     customer_id: int | None = None,
     features: dict[str, Any] | None = None,
@@ -206,6 +218,8 @@ def explain_customer(
     facts=F.segment_summary,
     plan_order=8,
     stage="P1",
+    description="分群画像：簇规模与事后转化率（训练不含 Conversion）。",
+    parameters={},
 )
 def segment_summary() -> dict[str, Any]:
     path = resolve_under_root("outputs/segments/summary.json")
@@ -214,7 +228,7 @@ def segment_summary() -> dict[str, Any]:
     return artifacts.load_json(path)
 
 
-@tool("assign_cluster", plan=_plan_assign_cluster, facts=F.assign_cluster, plan_order=9, stage="P1")
+@tool("assign_cluster", plan=_plan_assign_cluster, facts=F.assign_cluster, plan_order=9, stage="P1", description="将单个客户分配到簇。", parameters={"type": "object", "properties": {"customer_id": {"description": "int?：客户 ID"}}})
 def assign_cluster(customer_id: int | None = None, features: dict[str, Any] | None = None) -> dict[str, Any]:
     from digital_marketing.segment.assign import assign_one
 
@@ -228,6 +242,8 @@ def assign_cluster(customer_id: int | None = None, features: dict[str, Any] | No
     facts=F.top_association_rules,
     plan_order=10,
     stage="P1",
+    description="关联规则 Top 列表（support/confidence/lift；相关非因果）。",
+    parameters={"type": "object", "properties": {"min_lift": {"description": "number?：最小 lift 过滤，默认 1.0"}, "limit": {"description": "int?：返回条数"}}},
 )
 def top_association_rules(min_lift: float = 1.0, limit: int = 20) -> dict[str, Any]:
     path = resolve_under_root("outputs/rules/top_rules.json")
@@ -252,6 +268,8 @@ def top_association_rules(min_lift: float = 1.0, limit: int = 20) -> dict[str, A
     facts=F.strategy_brief,
     plan_order=17,
     stage="P1",
+    description="综合策略摘要：聚合画像/指标/分群/规则的只读简报。",
+    parameters={},
 )
 def strategy_brief() -> dict[str, Any]:
     """综合只读摘要：指标 + 可选分群/规则；不含因果断言。"""
@@ -289,6 +307,8 @@ def strategy_brief() -> dict[str, Any]:
     facts=F.compare_experiments,
     plan_order=11,
     stage="阶段9",
+    description="实验矩阵 E0–E8 全量对比（CV/CI/消融标记；CI 重叠不宣称更优）。",
+    parameters={},
 )
 def compare_experiments() -> dict[str, Any]:
     """实验对比：全量 leaderboard（CV/CI/校准/消融标记）。"""
@@ -314,6 +334,8 @@ def compare_experiments() -> dict[str, Any]:
     facts=F.calibration_summary,
     plan_order=12,
     stage="阶段9",
+    description="概率校准前后对比（brier/ECE；默认 E8 校准 run）。",
+    parameters={"type": "object", "properties": {"run_id": {"description": "string?：默认 E8_lightgbm_calibrated"}}},
 )
 def get_calibration_summary(run_id: str | None = None) -> dict[str, Any]:
     """校准摘要（默认取 E8 校准 run）。"""
@@ -336,6 +358,8 @@ def get_calibration_summary(run_id: str | None = None) -> dict[str, Any]:
     facts=F.lift_table,
     plan_order=13,
     stage="阶段9",
+    description="营销升降表：按预测概率十分位的捕获率与 lift。",
+    parameters={"type": "object", "properties": {"run_id": {"description": "string?：指定 run"}}},
 )
 def get_lift_table(run_id: str | None = None) -> dict[str, Any]:
     """lift/gains 十分位表。"""
@@ -348,6 +372,8 @@ def get_lift_table(run_id: str | None = None) -> dict[str, Any]:
     facts=F.simulate_budget,
     plan_order=14,
     stage="阶段9",
+    description="预算分配模拟（期望值口径，非因果收益承诺）。",
+    parameters={"type": "object", "properties": {"budget": {"description": "number?：预算上限"}, "value_per_conversion": {"description": "number?：单次转化价值，默认 10"}, "cost_per_contact": {"description": "number?：单次触达成本，默认 4"}}},
 )
 def simulate_budget(
     budget: float | None = None,
@@ -370,7 +396,7 @@ def simulate_budget(
     return raw
 
 
-@tool("counterfactual_explain", plan=_plan_counterfactual, facts=F.counterfactual_explain, plan_order=16, stage="阶段9")
+@tool("counterfactual_explain", plan=_plan_counterfactual, facts=F.counterfactual_explain, plan_order=16, stage="阶段9", description="反事实敏感性分析（模型行为口径，非因果；需要 customer_id）。", parameters={"type": "object", "properties": {"customer_id": {"description": "int：客户 ID（必填）"}, "feature": {"description": "string?：扰动特征名"}, "target_proba": {"description": "number?：目标概率"}}})
 def counterfactual_explain(
     customer_id: int | None = None,
     feature: str | None = None,
@@ -396,6 +422,8 @@ def counterfactual_explain(
     facts=F.analysis_report,
     plan_order=15,
     stage="阶段9",
+    description="一键生成分析报告并落盘 outputs/reports/（编排只读工具）。",
+    parameters={"type": "object", "properties": {"title": {"description": "string?：报告标题"}}},
 )
 def generate_analysis_report(
     title: str = "数字营销转化分析报告",
@@ -497,6 +525,8 @@ def _spec(
     facts=_chart_facts,
     plan_order=19,
     stage="Stage4",
+    description="生成声明式图表 spec（chart-spec v1.0 纯 JSON），前端会话内联渲染。",
+    parameters={"type": "object", "properties": {"chart_type": {"description": "string：bar / line / pie / scatter / heatmap / funnel"}, "dataset": {"description": "string：conversion_by_channel / conversion_by_type / leaderboard_pr / age_hist / income_hist / adspend_hist / segment_sizes / lift_deciles / global_shap_top"}, "limit": {"description": "int?：条目上限 1–50"}}},
 )
 def render_chart(
     chart_type: str = "bar",

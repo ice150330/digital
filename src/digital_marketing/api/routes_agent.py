@@ -9,6 +9,7 @@ from digital_marketing.agent import service as agent_service
 from digital_marketing.agent.pi_runtime import pi_status
 from digital_marketing.agent.report import generate_analysis_report
 from digital_marketing.api.errors import envelope_error
+from digital_marketing.agent.tools import list_tool_manifest, run_tool
 from digital_marketing.schemas.agent import (
     AuditRecentData,
     ChatData,
@@ -18,6 +19,9 @@ from digital_marketing.schemas.agent import (
     ReportRequest,
     RuntimeData,
     RuntimeRequest,
+    ToolManifestData,
+    ToolRunData,
+    ToolRunRequest,
 )
 from digital_marketing.schemas.common import Envelope
 
@@ -96,6 +100,32 @@ def agent_audit_recent(request: Request, limit: int = Query(default=50, ge=1, le
     items = agent_audit.list_recent(limit=limit)
     data = AuditRecentData(items=items, n=len(items))
     return Envelope[AuditRecentData](ok=True, data=data, error=None, request_id=request_id)
+
+
+@router.get("/agent/tools/manifest", response_model=Envelope[ToolManifestData])
+def agent_tools_manifest(request: Request):
+    """Stage 5：Pi 桥接工具清单（宿主 @tool 声明为唯一真相）。"""
+    request_id = getattr(request.state, "request_id", "unknown")
+    items = list_tool_manifest()
+    data = ToolManifestData(tools=items, n=len(items))
+    return Envelope[ToolManifestData](ok=True, data=data, error=None, request_id=request_id)
+
+
+@router.post("/agent/tool-run", response_model=Envelope[ToolRunData])
+def agent_tool_run(body: ToolRunRequest, request: Request):
+    """Stage 5：Pi 桥接 loopback 执行口——工具仍由宿主 REGISTRY 实际执行（§9.1）。
+
+    Pi 经 customTools 代理调用本端点；数字永远出自宿主，Pi 只编排与叙述。
+    """
+    request_id = getattr(request.state, "request_id", "unknown")
+    out = run_tool(body.name, **(body.args or {}))
+    data = ToolRunData(
+        ok=bool(out.get("ok")),
+        tool=str(out.get("tool") or body.name),
+        result=out.get("result"),
+        error=out.get("error"),
+    )
+    return Envelope[ToolRunData](ok=True, data=data, error=None, request_id=request_id)
 
 
 @router.post("/agent/report", response_model=Envelope[ReportData])

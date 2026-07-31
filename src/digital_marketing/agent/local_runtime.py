@@ -95,13 +95,29 @@ def run_local_chat(
         recommendations=recommendations,
         open_questions=open_q,
     )
+    return persist_turn(
+        payload, request_id=request_id, session_id=sid, message=message,
+        tool_trace=tool_trace, t0=t0, runtime=rt,
+    )
 
+
+def persist_turn(
+    payload: dict[str, Any],
+    *,
+    request_id: str,
+    session_id: str,
+    message: str,
+    tool_trace: list[dict[str, Any]],
+    t0: float,
+    runtime: str,
+) -> dict[str, Any]:
+    """审计落盘 + 会话续写 + latency 回填（local 与 pi 两条路径共用）。"""
     latency = audit.now_ms() - t0
     audit.append_audit(
         {
             "request_id": request_id,
-            "session_id": sid,
-            "runtime": rt,
+            "session_id": session_id,
+            "runtime": runtime,
             "user_message": message[:2000],
             "tool_calls": [{"tool": t["tool"], "ok": t["ok"]} for t in tool_trace],
             "reply_digest": (payload.get("reply") or "")[:500],
@@ -109,10 +125,10 @@ def run_local_chat(
             "error": None,
         }
     )
-    prev = audit.load_session(sid) or {"session_id": sid, "messages": []}
+    prev = audit.load_session(session_id) or {"session_id": session_id, "messages": []}
     prev.setdefault("messages", []).append({"role": "user", "content": message})
     prev["messages"].append({"role": "assistant", "content": payload})
-    prev["runtime"] = rt
-    audit.save_session(sid, prev)
+    prev["runtime"] = runtime
+    audit.save_session(session_id, prev)
     payload["latency_ms"] = round(latency, 2)
     return payload

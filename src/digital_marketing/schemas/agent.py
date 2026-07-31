@@ -71,3 +71,34 @@ class AuditRecentData(BaseModel):
     items: list[dict[str, Any]]
     n: int
     note: str = "按时间倒序；字段见 AGENTS.md §9.4 审计约定"
+
+
+# ---------------------------------------------------------------------------
+# Stage 5：Pi 桥接（工具清单 + loopback 执行）
+# ---------------------------------------------------------------------------
+
+
+class ToolSpecData(BaseModel):
+    name: str
+    description: str
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    stage: str = ""
+
+
+class ToolManifestData(BaseModel):
+    tools: list[ToolSpecData]
+    n: int
+
+
+class ToolRunRequest(BaseModel):
+    name: str
+    args: dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolRunData(BaseModel):
+    """工具执行结果；ok=False 时 error 为原因（envelope 层仍 ok=True）。"""
+
+    ok: bool
+    tool: str
+    result: Any = None
+    error: str | None = None

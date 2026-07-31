@@ -363,7 +363,8 @@ outputs/db/            # SQLite app.db（主数据轨，可重建）
 ### 9.1 原则
 
 - **Host-executed tools：** 工具在本仓库 Python 执行；LLM/Pi 只编排与叙述。  
-- 默认 runtime：**`pi`**（编排中枢）；stub/未安装/失败时**明确降级 local 并在响应 `pi_fallback` 与 `open_questions` 标注**；无 Key 可 `template`。  
+- 默认 runtime：**`pi`**（编排中枢）；stub/未安装/桥接失败时**明确降级 local 并在响应 `pi_fallback` 与 `open_questions` 标注**；无 Key 可 `template`。  
+- **Pi 桥接（Stage5，范式参考 VibeStart）：** `tools/pi-cli/bridge/chat.mjs` 以同进程 SDK（`createAgentSession` + `defineTool` customTools + `ExtensionFactory` 注入宿主接地指令）运行 Pi；每个 customTool 的 `execute` 仅是**代理**——HTTP loopback 回宿主 `POST /agent/tool-run` 由 Python REGISTRY 实算（数字永不出宿主）；工具清单来自 `GET /agent/tools/manifest`（@tool 声明的 description/parameters 为唯一真相）；桥接经 stdio JSONL 与 Python 通信（`tool_start/tool_end/done/error`），五段契约由宿主 `grounding` 从工具结果装配；**桥接脚本与 SDK 包均限 `tools/pi-cli/` 下**，node 为系统运行时（§9.3 限制的是 pi 而非 node）。
 - 输出字段：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace`。  
 - skills 生态：`agent/skills/<name>/SKILL.md` ×7（frontmatter name/description + 编排步骤 + 口径红线）；模板模式复用同套编排，保证无 Key 可演示。  
 - 一键报告：`generate_analysis_report` 编排工具 → markdown 落盘 `outputs/reports/analysis_<ts>.md`，数字全部来自工具结果，尾部固定「口径与限制」节。
@@ -390,32 +391,34 @@ outputs/db/            # SQLite app.db（主数据轨，可重建）
 | `generate_analysis_report` | 阶段9 |
 | `render_chart`（声明式图表 spec，9 数据集 × 6 图型） | Stage4 |
 
-新增工具（Stage 1 起）：**一处定义**——`tools/catalog.py` 用 `@tool(name, keywords=..., base_kwargs=..., plan=..., facts=..., plan_order=..., stage=...)` 装饰器声明，REGISTRY 注册、`plan_from_message` 关键词路由、grounding 事实分派（`tools/facts.py`）自动生效；再更新本节表格 + `agent.yaml` `tools.whitelist`（非空时 run_tool 校验交集）+ 单测 + CHANGE。旧入口 `plan_tools`/`facts_from_tool`/`try_pi_or_fallback` 为兼容别名。
+新增工具（Stage 1 起）：**一处定义**——`tools/catalog.py` 用 `@tool(name, keywords=..., base_kwargs=..., plan=..., facts=..., plan_order=..., stage=..., description=..., parameters=...)` 装饰器声明，REGISTRY 注册、`plan_from_message` 关键词路由、grounding 事实分派（`tools/facts.py`）、Pi 桥接 manifest（`description` 非空才暴露给 Pi）自动生效；再更新本节表格 + `agent.yaml` `tools.whitelist`（非空时 run_tool 校验交集）+ 单测 + CHANGE。旧入口 `plan_tools`/`facts_from_tool`/`try_pi_or_fallback` 为兼容别名。
 
 ### 9.3 项目内 Pi CLI
 
 | 规则 | 要求 |
 |------|------|
-| 目录 | 仅 `tools/pi-cli/` |
-| 安装 | `python scripts/setup_pi_cli.py` |
+| 目录 | 仅 `tools/pi-cli/`（含 `bridge/chat.mjs` 与 node_modules SDK） |
+| 安装 | `python scripts/setup_pi_cli.py`（默认安装 `@earendil-works/pi-coding-agent` + `typebox`） |
 | 版本 | package.json / lock / VERSION |
 | 可执行文件 | `config/agent.yaml` → `pi.executable`，路径必须在 `tools/pi-cli/` 下 |
-| PATH | **禁止** `which pi`、禁止全局回退 |
+| PATH | **禁止** `which pi`、禁止全局回退（node 为系统运行时，不受此限） |
 | 作用域 | **仅本仓库本地** |
-| 会话 | `outputs/agent_sessions/` |
-| 未安装 | 明确错误 + 降级 local |
-| 测试 | 断言 executable 前缀合法 |
+| 会话 | `outputs/agent_sessions/`（宿主侧持久化；Pi 侧内存态单轮） |
+| 未安装/桥接失败 | 明确错误 + 降级 local（`pi_fallback` + `open_questions`） |
+| 测试 | 断言 executable 前缀合法 + 桥接事件装配 + 降级链 |
 
 ```text
 setup_pi_cli.py
-  → npm install --prefix tools/pi-cli 锁定 @earendil-works/pi-coding-agent
-  → 写入 VERSION / lock
-  → 解析 bin 写入 pi.executable（相对项目根）
+  → npm install --prefix tools/pi-cli @earendil-works/pi-coding-agent typebox
+  → 写入 package.json(type=module) / stub bin / bridge/chat.mjs
 
-PiRuntime.run()
-  → assert path 位于 project_root/tools/pi-cli
-  → cwd=project_root；超时与输出上限
-  → 解析为统一 AgentResult
+run_pi_chat（pi_runtime.py）
+  → pi_status：installed && !stub && bridge_ready（脚本/node/SDK 三要素）
+  → spawn: node tools/pi-cli/bridge/chat.mjs（cwd=project_root，stdin 单行 JSON）
+  → 桥接：createAgentSession(customTools=manifest 代理, ExtensionFactory 注入红线指令)
+       → session.prompt → 工具调用经 loopback POST /agent/tool-run（宿主实算）
+  → 解析 stdout JSONL → grounding 装配五段契约 → 审计/会话落盘
+  → 任何失败 → 降级 local（契约不变）
 ```
 
 ### 9.4 审计 jsonl（每行）
@@ -481,6 +484,8 @@ PiRuntime.run()
 | GET | `/agent/pi/status` | P1（含 is_stub/default_runtime/skills/fallback_reason） |
 | GET | `/agent/audit/recent` | 阶段9（审计行倒序，limit 1–500） |
 | POST | `/agent/report` | 阶段9（一键分析报告落盘） |
+| GET | `/agent/tools/manifest` | Stage5（Pi 桥接工具清单：@tool 声明为唯一真相） |
+| POST | `/agent/tool-run` | Stage5（Pi 桥接 loopback 执行口；宿主 REGISTRY 实算） |
 
 ### 10.3 关键响应字段
 

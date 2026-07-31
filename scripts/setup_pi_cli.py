@@ -28,10 +28,19 @@ README_TXT = """# 项目内 Pi CLI
 python scripts/setup_pi_cli.py
 ```
 
+默认安装 `@earendil-works/pi-coding-agent` + `typebox`（SDK 桥接依赖）。
+
+## Stage 5 编排桥接
+
+`bridge/chat.mjs`：Python 宿主经 stdio JSONL 调用本桥接，桥接以同进程 SDK
+（`createAgentSession` + `customTools` 代理）运行 Pi；工具执行经 HTTP loopback
+回宿主 `POST /api/v1/agent/tool-run`（host-executed 红线：数字永由宿主计算）。
+
 可选环境变量：
 
-- `PI_NPM_PACKAGE`：npm 包名（默认创建本地 stub）
+- `PI_NPM_PACKAGE`：覆盖安装包（空格分隔多个）
 - `SKIP_NPM=1`：仅写 stub，不调用 npm
+- `PI_BRIDGE_MODEL`：桥接用模型（如 deepseek-chat），缺省走 pi 默认/凭证
 """
 
 
@@ -69,11 +78,12 @@ def write_stub() -> Path:
         "@echo off\r\nnode \"%~dp0pi\" %*\r\n",
         encoding="utf-8",
     )
-    # package.json 标记
+    # package.json 标记（type=module 供 Stage5 bridge/chat.mjs ESM 导入）
     pkg = {
         "name": "digital-marketing-pi-cli",
         "private": True,
         "version": "0.1.0",
+        "type": "module",
         "description": "Project-local Pi CLI root (no global install)",
         "bin": {"pi": "node_modules/.bin/pi"},
     }
@@ -85,23 +95,27 @@ def write_stub() -> Path:
     return stub
 
 
+DEFAULT_NPM_PACKAGES = "@earendil-works/pi-coding-agent typebox"
+
+
 def try_npm_install() -> bool:
+    """安装 Pi SDK + 桥接依赖（Stage 5 起默认安装；SKIP_NPM=1 跳过）。"""
     if os.environ.get("SKIP_NPM") == "1":
         return False
     npm = shutil.which("npm")
     if not npm:
         print("未找到 npm，仅写入 stub", flush=True)
         return False
-    pkg = os.environ.get("PI_NPM_PACKAGE", "").strip()
-    if not pkg:
-        print("未设置 PI_NPM_PACKAGE，跳过 npm install，使用 stub", flush=True)
-        return False
-    print(f"+ npm install {pkg} (cwd={PI_DIR})", flush=True)
+    pkg = os.environ.get("PI_NPM_PACKAGE", "").strip() or DEFAULT_NPM_PACKAGES
+    packages = pkg.split()
+    print(f"+ npm install {' '.join(packages)} (cwd={PI_DIR})", flush=True)
     r = subprocess.run(
-        [npm, "install", pkg, "--no-fund", "--no-audit"],
+        [npm, "install", *packages, "--no-fund", "--no-audit"],
         cwd=str(PI_DIR),
         shell=False,
     )
+    if r.returncode != 0:
+        print("npm install 失败：仍为 stub，Pi 编排将降级 local/template", flush=True)
     return r.returncode == 0
 
 

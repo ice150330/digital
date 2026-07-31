@@ -26,6 +26,21 @@
 
 ## 变更日志
 
+## 2026-07-31 — Stage 5：Pi 真实编排桥接（VibeStart 范式：同进程 SDK + customTools 宿主代理）
+
+- **类型：** feat
+- **范围：** `tools/pi-cli/bridge/chat.mjs(新)`、`agent/pi_runtime.py`、`agent/local_runtime.py`、`agent/tools/{__init__.py,catalog.py}`、`api/routes_agent.py`、`schemas/agent.py`、`scripts/setup_pi_cli.py`、`tests/test_pi_bridge.py(新)`、`AGENTS.md`
+- **摘要：**
+  - **学习 VibeStart（F:\Project\VibeStart）的 pi 接入范式**并适配本项目：`createAgentSession` 同进程 SDK + `defineTool` customTools + `ExtensionFactory`（before_agent_start 注入宿主接地指令）+ `session.subscribe` 事件流
+  - `tools/pi-cli/bridge/chat.mjs`：Node 桥接（stdin 请求 / stdout JSONL：ready/tool_start/tool_end/done/error）；每个 customTool 的 execute 是**代理**——HTTP loopback 回宿主 `POST /agent/tool-run` 由 Python REGISTRY 实算（§9.1 红线：数字永不出宿主，Pi 只编排与叙述）
+  - `@tool` 装饰器扩 `description`/`parameters`（JSON Schema），19 个工具全部声明；新端点 `GET /agent/tools/manifest`（桥接工具清单，宿主声明为唯一真相）+ `POST /agent/tool-run`（loopback 执行口）
+  - `pi_runtime.run_pi_chat` 实装：pi_status 增 bridge_ready 三要素检测（脚本/node/SDK 包）；spawn 桥接 → 解析 JSONL → grounding 装配五段契约 → 审计落盘；**任何失败（node 缺失/包未装/超时/无工具调用）自动降级 local**，`pi_fallback` + `open_questions` 契约不变；`persist_turn` 提取为 local/pi 共用
+  - `setup_pi_cli.py`：默认安装 `@earendil-works/pi-coding-agent` + `typebox`；package.json `type=module`
+- **原因：** 用户确认「安装真实 Pi」决策 + 指定参考 VibeStart 的接入方式；桥接范式比 CLI 子进程更稳（同进程 SDK、结构化工具协议、Pi 原生 customTools 机制天然契合宿主接地红线）
+- **影响：** 装完 SDK + LLM Key 后 runtime=pi 即为真实 Pi 编排；未装时行为与之前完全一致（stub 降级）
+- **破坏性：** 无（try_pi_or_fallback 别名保留，既有降级链测试零修改通过）
+- **验证：** `pytest` 全量 **115 项绿**（+10 桥接测试：manifest/tool-run 端点、事件装配五段契约、无工具调用拒绝装配、降级链 ×3）；`node --check bridge/chat.mjs` 语法通过；**桥接真实联通待用户安装 SDK 后实测**（Stage 5d）
+
 ## 2026-07-31 — Stage 6：侧栏四层叙事分组 + 叙事降级 + 交互动效 + 文档总升版
 
 - **类型：** feat / design

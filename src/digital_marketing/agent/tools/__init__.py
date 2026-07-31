@@ -32,6 +32,10 @@ class ToolMeta:
     # 规划顺序（保持历史 plan_tools 的 append 顺序，影响 [:6] 截断与 trace 次序）
     plan_order: int = 100
     stage: str = ""
+    # Stage5：Pi 桥接工具清单（manifest）——description 为空 = 不暴露给 Pi
+    description: str = ""
+    # 参数 JSON Schema（{"type":"object","properties":{...}}），manifest 与模型共用
+    parameters: dict[str, Any] = field(default_factory=dict)
 
 
 REGISTRY: dict[str, ToolMeta] = {}
@@ -46,6 +50,8 @@ def tool(
     facts: FactsFn | None = None,
     plan_order: int = 100,
     stage: str = "",
+    description: str = "",
+    parameters: dict[str, Any] | None = None,
 ) -> Callable[[ToolFn], ToolFn]:
     """装饰器：把工具函数登记进 REGISTRY（幂等，重名覆盖以便测试热替换）。"""
 
@@ -59,10 +65,26 @@ def tool(
             facts=facts,
             plan_order=plan_order,
             stage=stage,
+            description=description,
+            parameters=parameters or {},
         )
         return fn
 
     return deco
+
+
+def list_tool_manifest() -> list[dict[str, Any]]:
+    """Pi 桥接工具清单：仅含声明了 description 的工具（宿主契约为唯一真相）。"""
+    return [
+        {
+            "name": m.name,
+            "description": m.description,
+            "parameters": m.parameters or {"type": "object", "properties": {}},
+            "stage": m.stage,
+        }
+        for m in sorted(REGISTRY.values(), key=lambda x: (x.plan_order, x.name))
+        if m.description
+    ]
 
 
 def list_tools() -> list[str]:
