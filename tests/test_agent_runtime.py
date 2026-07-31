@@ -43,11 +43,14 @@ def test_pi_status_enriched_fields():
         assert k in st
     assert st["default_runtime"] == "pi"
     assert st["valid_prefix"] is True
-    # 当前环境为 setup 写入的 stub
+    # 兼容两种环境：stub（setup 占位）与真实安装（Stage 5 之后）
     if st["installed"]:
-        assert st["is_stub"] is True
-        assert st["code"] == "PI_STUB"
-        assert st["fallback_reason"]
+        if st["is_stub"]:
+            assert st["code"] == "PI_STUB"
+            assert st["fallback_reason"]
+        else:
+            assert st["code"] is None
+            assert st["fallback_reason"] is None
     assert len(st["skills"]) == 7
 
 

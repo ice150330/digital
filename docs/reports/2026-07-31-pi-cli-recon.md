@@ -79,14 +79,19 @@ tools/pi-cli/node_modules/.bin/pi \
   --offline
 ```
 
-## 6. 待安装后实测项（补录）
+## 6. 实测结论（2026-07-31 补录，v0.83.0 已安装）
 
-- [ ] `pi --version` / `--help` 全文与本报告比对
-- [ ] `--mode json` 事件 schema（事件类型名、最终文本字段）
-- [ ] DeepSeek Key 环境变量名（推测 `DEEPSEEK_API_KEY`，pi-ai 惯例）与无 Key 时报错形态
-- [ ] `--skill` 是否接受目录批量或需逐个文件
-- [ ] `-p` 模式下 AGENTS.md 自动加载行为与体积影响
-- [ ] 无 Key 时能否纯离线跑 template 替代（否则 Stage 5 无 Key 直接走 local 降级）
+- [x] **`pi --version` = 0.83.0**；`--help` 全文与本报告第 2/3 节一致（补充：`--provider` **默认 google**，须显式指定；`--session-id <id>` 精确会话；`--no-builtin-tools/-nbt` 禁内置但留扩展/自定义工具）
+- [x] **最终集成未走 CLI 而走 SDK**（`createAgentSession` 同进程，范式来自 VibeStart）：`createAgentSession({ cwd, agentDir, resourceLoader, customTools, noTools:'builtin', modelRuntime, model, sessionManager: SessionManager.inMemory(cwd), settingsManager: SettingsManager.inMemory() })`；事件流 `session.subscribe`：`tool_execution_start/end`、`message_update.text_delta`、`agent_settled`
+- [x] **关键 API 细节（踩坑实录）：**
+  - `DefaultResourceLoader` 构造**必须显式传 `agentDir`**（`join(homedir(), '.pi', 'agent')`），SDK 不自填默认值，缺失即 `normalizePath` 崩溃
+  - `createAgentSession` 的 `model` 是 `Model` 对象而非字符串：`ModelRuntime.create({})` → `getModel(providerId, modelId)`
+  - `noTools: 'builtin'` 禁用内置 read/bash/edit/write 且**保留 customTools**（宿主接地红线的 SDK 级保障）
+- [x] **DeepSeek Key**：pi-ai 读 `DEEPSEEK_API_KEY` 环境变量（实测生效，解析模型为 DeepSeek V4 Flash）；桥接经 `PI_BRIDGE_MODEL`（默认 `deepseek/deepseek-chat`）指定 provider/model
+- [x] **实测联通（两轮）：**
+  - 桥接单链路：Pi 自主调用 `get_dataset_profile` → 宿主 loopback 实算（n_rows=8000, positive_rate=0.8765）→ Pi 五段叙述且自发遵守 PR-AUC/Accuracy 口径
+  - 全链路 `POST /agent/chat runtime=pi`：`pi_fallback=false`，Pi 自主编排 `get_model_metrics` + `render_chart` 双工具，grounding 从工具结果抽出 7 条 facts，chart-spec 正确（bar/渠道转化率/5 渠道），reply 为 Pi 组织的五段文本
+- [x] 无 Key 时：桥接 `createAgentSession` 失败 → Python 侧降级 local（`pi_fallback=true`，契约不变）
 
 ## 7. 风险
 

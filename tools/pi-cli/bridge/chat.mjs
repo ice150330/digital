@@ -23,8 +23,10 @@
  * 依赖：@earendil-works/pi-coding-agent + typebox（见 tools/pi-cli/package.json；
  * python scripts/setup_pi_cli.py 安装）。node ≥ 22（原生 fetch）。
  */
-import { createAgentSession, DefaultResourceLoader, SessionManager, SettingsManager, defineTool } from '@earendil-works/pi-coding-agent'
+import { createAgentSession, DefaultResourceLoader, ModelRuntime, SessionManager, SettingsManager, defineTool } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 
 // ---------------------------------------------------------------------------
 // stdin 请求
@@ -152,30 +154,56 @@ let assistantText = ''
 let nToolCalls = 0
 let modelName = ''
 
+// agentDir 必须显式传（SDK 不自填默认值，VibeStart 同款处理）
 const resourceLoader = new DefaultResourceLoader({
   cwd,
+  agentDir: join(homedir(), '.pi', 'agent'),
   extensionFactories: [contextFactory],
 })
 await resourceLoader.reload()
 
+// 模型解析：env PI_BRIDGE_MODEL（"provider/model"，默认 deepseek/deepseek-chat）。
+// ModelRuntime 默认读取 env 凭证（DEEPSEEK_API_KEY 等）与 ~/.pi/agent 配置。
+const modelSpec = process.env.PI_BRIDGE_MODEL || 'deepseek/deepseek-chat'
+const [providerId, ...rest] = modelSpec.split('/')
+const modelId = rest.join('/') || undefined
+let modelRuntime = null
+let model = null
+try {
+  modelRuntime = await ModelRuntime.create({})
+  if (modelId) {
+    model = modelRuntime.getModel(providerId, modelId) ?? null
+  }
+  if (model === null) {
+    // 回落：按 provider 可用模型或 id 模糊匹配
+    const pool = modelRuntime.getAvailableSnapshot?.() ?? []
+    model = pool.find((mm) => mm?.id === modelId) ?? pool.find((mm) => String(mm?.id ?? '').includes('deepseek')) ?? pool[0] ?? null
+  }
+} catch (e) {
+  process.stderr.write(`[bridge] 模型解析失败（将用 pi 默认）: ${e?.message}\n`)
+}
+
 let session
 try {
-  // 优先尝试携带 model（env PI_BRIDGE_MODEL，如 deepseek-chat）；不支持则回落默认
-  const opts = {
+  ;({ session } = await createAgentSession({
     cwd,
     resourceLoader,
     customTools,
+    // 红线：禁用内置 read/bash/edit/write（"builtin" 保留 customTools），
+    // Pi 只能经宿主代理工具取数，不能直接碰文件系统/shell
+    noTools: 'builtin',
+    ...(modelRuntime ? { modelRuntime } : {}),
+    ...(model ? { model } : {}),
     sessionManager: SessionManager.inMemory(cwd),
     settingsManager: SettingsManager.inMemory(),
-  }
-  if (process.env.PI_BRIDGE_MODEL) opts.model = process.env.PI_BRIDGE_MODEL
-  ;({ session } = await createAgentSession(opts))
+  }))
 } catch (e1) {
   try {
     ;({ session } = await createAgentSession({
       cwd,
       resourceLoader,
       customTools,
+      noTools: 'builtin',
       sessionManager: SessionManager.inMemory(cwd),
       settingsManager: SettingsManager.inMemory(),
     }))
