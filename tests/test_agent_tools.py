@@ -160,3 +160,68 @@ def test_plan_tools_routes_stage9_keywords():
     assert "get_calibration_summary" in plans4
     plans5 = [name for name, _ in plan_tools("给我 lift 十分位增益表")]
     assert "get_lift_table" in plans5
+
+
+# ---------------------------------------------------------------------------
+# Stage 4：render_chart 声明式图表工具（chart-spec v1.0）
+# ---------------------------------------------------------------------------
+
+
+def test_render_chart_spec_is_pure_json():
+    import json
+
+    out = run_tool("render_chart", chart_type="bar", dataset="conversion_by_channel")
+    assert out["ok"] is True
+    spec = out["result"]
+    json.dumps(spec, ensure_ascii=False)  # 纯 JSON 可序列化（无函数/对象）
+    for k in (
+        "spec_version", "chart_type", "title", "categories",
+        "series", "value_format", "axis", "caliber", "source",
+    ):
+        assert k in spec, k
+    assert spec["spec_version"] == "1.0"
+    assert spec["categories"]
+    assert spec["series"][0]["values"]
+
+
+def test_render_chart_all_datasets():
+    for ds in (
+        "conversion_by_channel", "conversion_by_type", "leaderboard_pr",
+        "age_hist", "income_hist", "adspend_hist",
+        "segment_sizes", "lift_deciles", "global_shap_top",
+    ):
+        out = run_tool("render_chart", dataset=ds)
+        assert out["ok"] is True, f"{ds}: {out.get('error')}"
+        assert out["result"]["categories"], ds
+
+
+def test_render_chart_rejects_invalid():
+    bad_ds = run_tool("render_chart", dataset="not_a_dataset")
+    assert bad_ds["ok"] is False
+    assert "dataset" in bad_ds["error"]
+    bad_type = run_tool("render_chart", chart_type="radar", dataset="age_hist")
+    assert bad_type["ok"] is False
+    assert "chart_type" in bad_type["error"]
+
+
+def test_render_chart_facts_state_existence_not_numbers():
+    from digital_marketing.agent.grounding import facts_from_tool
+
+    out = run_tool("render_chart", dataset="conversion_by_channel")
+    facts = facts_from_tool("render_chart", out)
+    assert any("图表" in f for f in facts)
+    # facts 只述存在性：不含任何数字（数字在图里，避免叙述与图不一致）
+    assert not any(ch.isdigit() for f in facts for ch in f)
+
+
+def test_plan_routes_render_chart():
+    from digital_marketing.agent.local_runtime import plan_tools
+
+    plans = [name for name, _ in plan_tools("画各渠道转化率柱状图")]
+    assert "render_chart" in plans
+    # 数据集推断：分群 → pie/segment_sizes
+    kwargs = dict(plan_tools("画分群规模占比饼图"))
+    assert kwargs.get("render_chart", {}).get("dataset") == "segment_sizes"
+    # 「对比图」变体 → leaderboard_pr
+    kwargs2 = dict(plan_tools("画实验矩阵 PR-AUC 对比图"))
+    assert kwargs2.get("render_chart", {}).get("dataset") == "leaderboard_pr"

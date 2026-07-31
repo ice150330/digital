@@ -16,9 +16,11 @@ import {
   type ChatData,
   type PiStatusData,
 } from '../api/agent'
+import ChartCard, { type ChartSpec } from '../components/ChartCard.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
 import RuntimeBadge from '../components/RuntimeBadge.vue'
 import ToolTracePanel from '../components/ToolTracePanel.vue'
+import type { ToolTraceItem } from '../api/agent'
 
 const message = ref('各渠道转化率如何？并给出模型 PR-AUC')
 const loading = ref(false)
@@ -29,6 +31,9 @@ const history = ref<ChatData[]>([])
 const pi = ref<PiStatusData | null>(null)
 const chips = [
   '数据规模与正类占比',
+  '画各渠道转化率柱状图',
+  '画实验矩阵 PR-AUC 对比图',
+  '画分群规模占比饼图',
   '各渠道转化率',
   '模型 PR-AUC 与 Dummy',
   '对比各实验 PR-AUC 与置信区间',
@@ -79,6 +84,13 @@ async function onRuntimeChange(v: string) {
   } catch {
     /* 本地演示：切换失败不阻塞聊天 */
   }
+}
+
+/** 从一轮对话的 tool_trace 提取 render_chart 成功结果（chart-spec v1.0）。 */
+function chartSpecs(item: ChatData): ChartSpec[] {
+  return (item.tool_trace || [])
+    .filter((t: ToolTraceItem) => t.tool === 'render_chart' && t.ok && t.result)
+    .map((t: ToolTraceItem) => t.result as ChartSpec)
 }
 
 onMounted(loadPi)
@@ -152,6 +164,9 @@ onMounted(loadPi)
           <div class="section-title">open_questions（待澄清）</div>
           <ul><li v-for="(f, i) in item.open_questions" :key="i">{{ f }}</li></ul>
         </div>
+
+        <!-- Stage 4：render_chart 工具结果内联渲染（数字来自宿主工具，非 LLM 生成） -->
+        <ChartCard v-for="(spec, ci) in chartSpecs(item)" :key="ci" :spec="spec" />
 
         <ToolTracePanel :trace="item.tool_trace" />
       </div>

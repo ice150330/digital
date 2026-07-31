@@ -41,3 +41,5 @@ tools:
     - simulate_budget
     - counterfactual_explain
     - generate_analysis_report
+    # Stage4 声明式图表工具
+    - render_chart
