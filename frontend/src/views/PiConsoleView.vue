@@ -92,7 +92,7 @@ onMounted(load)
               :runtime="pi.installed && !pi.is_stub ? 'pi' : 'local'"
               :pi="pi"
               :fallback="Boolean(pi.is_stub || pi.fallback_reason)"
-              style="margin-left: 8px"
+              class="ml-sm"
             />
           </template>
           <ElDescriptions v-if="pi" :column="1" size="small" border>
@@ -101,8 +101,8 @@ onMounted(load)
             </ElDescriptionsItem>
             <ElDescriptionsItem label="Pi 可执行文件">
               <span class="mono">{{ pi.executable || '未安装' }}</span>
-              <ElTag v-if="pi.is_stub" size="small" type="warning" style="margin-left: 8px">stub 占位</ElTag>
-              <ElTag v-else-if="pi.installed" size="small" type="success" style="margin-left: 8px">真实安装</ElTag>
+              <ElTag v-if="pi.is_stub" size="small" type="warning">stub 占位</ElTag>
+              <ElTag v-else-if="pi.installed" size="small" type="success">真实安装</ElTag>
             </ElDescriptionsItem>
             <ElDescriptionsItem v-if="pi.fallback_reason" label="降级原因">
               {{ pi.fallback_reason }}
@@ -112,7 +112,7 @@ onMounted(load)
               <span class="tabular-nums">{{ pi.sessions_count }}</span>
             </ElDescriptionsItem>
           </ElDescriptions>
-          <p class="muted" style="margin-bottom: 0">
+          <p class="muted mb-0">
             Pi 仅允许 <code>tools/pi-cli/</code>（项目内）；禁止 PATH/which pi 回退与全局安装。
           </p>
         </ElCard>
@@ -134,8 +134,8 @@ onMounted(load)
 
         <ElCard shadow="never" class="section-card">
           <template #header>一键分析报告</template>
-          <ElSpace wrap style="width: 100%">
-            <ElInput v-model="reportTitle" style="min-width: 240px" placeholder="报告标题" />
+          <ElSpace wrap class="w-full">
+            <ElInput v-model="reportTitle" class="input-wide" placeholder="报告标题" />
             <ElButton type="primary" :loading="reportLoading" @click="makeReport">
               生成报告
             </ElButton>
@@ -145,7 +145,7 @@ onMounted(load)
               <ElTag size="small" :type="report.n_sections_ok === report.n_sections ? 'success' : 'warning'">
                 {{ report.n_sections_ok }}/{{ report.n_sections }} 节完成
               </ElTag>
-              <span class="mono muted" style="margin-left: 8px">{{ report.report_path }}</span>
+              <span class="mono muted ml-sm">{{ report.report_path }}</span>
             </p>
             <pre class="digest">{{ report.digest }}</pre>
             <ToolTracePanel :trace="report.tool_trace" />
@@ -157,8 +157,8 @@ onMounted(load)
       <div>
         <ElCard shadow="never" class="section-card">
           <template #header>会话回放</template>
-          <ElSpace wrap style="width: 100%">
-            <ElInput v-model="sessionId" style="min-width: 260px" placeholder="session_id（见审计表）" />
+          <ElSpace wrap class="w-full">
+            <ElInput v-model="sessionId" class="input-wide" placeholder="session_id（见审计表）" />
             <ElButton @click="replay">加载</ElButton>
           </ElSpace>
           <p v-if="sessionError" class="err-text">{{ sessionError }}</p>
@@ -191,7 +191,7 @@ onMounted(load)
                   :key="i"
                   size="small"
                   :type="t.ok ? 'success' : 'danger'"
-                  style="margin-right: 4px"
+                  class="mr-xs"
                 >
                   {{ t.tool }}
                 </ElTag>
@@ -245,7 +245,7 @@ onMounted(load)
   white-space: pre-wrap;
   font-family: var(--font-sans);
   font-size: 12px;
-  background: #f5f7fa;
+  background: var(--color-code-bg);
   padding: 10px;
   border-radius: 6px;
   max-height: 220px;
@@ -254,7 +254,7 @@ onMounted(load)
 .json {
   font-family: var(--font-mono);
   font-size: 11px;
-  background: #f5f7fa;
+  background: var(--color-code-bg);
   padding: 10px;
   border-radius: 6px;
   overflow: auto;

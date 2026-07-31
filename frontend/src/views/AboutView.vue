@@ -54,7 +54,7 @@ npm run dev
         <li>变更：<code>CHANGE.md</code></li>
         <li>计划：<code>docs/plans/</code></li>
       </ul>
-      <p class="disclaimer" style="margin-top: 12px">
+      <p class="disclaimer mt-md">
         AI 使用说明：本仓库允许使用 Claude Code 等辅助实现；论文中的数字必须以
         <code>outputs/metrics</code> 为准，禁止手改 metrics 充表。Agent 须工具接地，不得无依据编造 AUC。
       </p>
@@ -73,8 +73,8 @@ npm run dev
 .code {
   margin: 0;
   padding: 12px 14px;
-  background: #1e1e1e;
-  color: #d4d4d4;
+  background: var(--color-code-dark-bg);
+  color: var(--color-code-dark-text);
   border-radius: 8px;
   font-family: var(--font-mono);
   font-size: 12px;

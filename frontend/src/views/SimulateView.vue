@@ -112,7 +112,7 @@ onMounted(() => run())
       <ElCard v-if="data.top_list?.length" shadow="never" class="section-card">
         <template #header>
           Top 名单预览（前 {{ data.top_list.length }} / 推荐 K={{ formatInt(data.recommended_k) }}）
-          <ElTag v-if="data.export_path" size="small" type="success" style="margin-left: 8px">
+          <ElTag v-if="data.export_path" size="small" type="success">
             已导出 {{ data.export_path }}
           </ElTag>
         </template>

@@ -85,17 +85,17 @@ onMounted(load)
       <ElCard shadow="never" class="section-card">
         <template #header>
           簇列表
-          <span class="muted mono" style="margin-left: 8px">
+          <span class="muted mono ml-sm">
             {{ data.method }} · k={{ data.n_clusters }} · n={{ formatInt(data.n_samples) }}
           </span>
-          <ElTag v-if="data.label_excluded" size="small" type="success" style="margin-left: 8px">
+          <ElTag v-if="data.label_excluded" size="small" type="success">
             训练无标签
           </ElTag>
           <ElTag
             v-if="stabilityBadge"
             size="small"
             :type="stabilityBadge.type as 'success' | 'primary' | 'warning'"
-            style="margin-left: 8px"
+
             :title="`bootstrap ${stabilityBadge.n_boot} 次 ARI：${stabilityBadge.note || '划分配对稳定性'}`"
           >
             稳定性 ARI {{ stabilityBadge.ari_mean.toFixed(3) }}±{{ stabilityBadge.ari_std.toFixed(3) }}
@@ -132,20 +132,20 @@ onMounted(load)
       <ElCard v-if="projection?.points?.length" shadow="never" class="section-card">
         <template #header>
           PCA 二维投影
-          <span class="muted" style="margin-left: 8px">
+          <span class="muted ml-sm">
             方差解释率
             {{ projection.explained_variance.map((v) => (v * 100).toFixed(1) + '%').join(' + ') }}
             · n={{ formatInt(projection.n_points) }}
           </span>
         </template>
         <ScatterPcaChart :points="projection.points" :auto-names="autoNames" />
-        <p class="muted" style="margin-bottom: 0">PCA 仅用于可视化，不参与分群训练；相关非因果。</p>
+        <p class="muted mb-0">PCA 仅用于可视化，不参与分群训练；相关非因果。</p>
       </ElCard>
 
       <ElCard v-if="compare?.comparison?.length" shadow="never" class="section-card">
         <template #header>
           多算法对比（KMeans / GMM / Agglomerative × K）
-          <span class="muted" style="margin-left: 8px">主分群：KMeans k={{ compare.kmeans_k }}</span>
+          <span class="muted ml-sm">主分群：KMeans k={{ compare.kmeans_k }}</span>
         </template>
         <ElTable :data="compare.comparison" size="small" stripe max-height="360">
           <ElTableColumn prop="algo" label="算法" width="140">
@@ -182,7 +182,7 @@ onMounted(load)
             </template>
           </ElTableColumn>
         </ElTable>
-        <p class="muted" style="margin-bottom: 0">{{ compare.disclaimer }}</p>
+        <p class="muted mb-0">{{ compare.disclaimer }}</p>
       </ElCard>
 
       <ElCard shadow="never" class="section-card">

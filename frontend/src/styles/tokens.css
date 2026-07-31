@@ -11,6 +11,13 @@
   --color-warning: #e6a23c;
   --color-danger: #f56c6c;
   --color-info: #909399;
+  --color-primary-soft: #ecf5ff;   /* active/选中浅底（侧栏 active、chip） */
+  --color-hover: #f5f7fa;          /* hover 浅底 */
+  --color-code-bg: #f5f7fa;        /* 代码/JSON 块浅底 */
+  --color-warning-soft: #fdf6ec;   /* disclaimer/警示浅底 */
+  --color-warning-soft-border: #faecd8;
+  --color-code-dark-bg: #1e1e1e;   /* 深色代码块（关于页命令块） */
+  --color-code-dark-text: #d4d4d4;
   --color-shap-pos: #409eff;
   --color-shap-neg: #f56c6c;
   --color-chart-1: #409eff;
@@ -105,8 +112,29 @@
   color: var(--color-text-secondary);
   line-height: 1.6;
   padding: var(--space-sm) var(--space-md);
-  background: #fdf6ec;
-  border: 1px solid #faecd8;
+  background: var(--color-warning-soft);
+  border: 1px solid var(--color-warning-soft-border);
   border-radius: var(--radius-md);
   margin-bottom: var(--space-md);
 }
+
+/* 代码/JSON 展示块统一底色（收敛 PiConsole/ToolTrace 等处重复定义） */
+.code-block {
+  background: var(--color-code-bg);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+}
+
+/* 间距工具类（8px 网格，收敛各页散落的内联 margin） */
+.ml-xs { margin-left: var(--space-xs); }
+.ml-sm { margin-left: var(--space-sm); }
+.mr-xs { margin-right: var(--space-xs); }
+.mt-0 { margin-top: 0; }
+.mt-sm { margin-top: var(--space-sm); }
+.mt-md { margin-top: var(--space-md); }
+.mb-0 { margin-bottom: 0; }
+.m-block-md { margin: var(--space-md) 0; }
+.w-full { width: 100%; }
+.input-wide { min-width: 240px; }
+.flex-1 { flex: 1; }

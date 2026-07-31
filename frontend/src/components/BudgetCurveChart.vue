@@ -1,15 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import * as echarts from 'echarts/core'
-import { LineChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, MarkLineComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
+import { computed } from 'vue'
+import BaseChart from './BaseChart.vue'
 import type { BudgetCurvePoint } from '../api/simulate'
 import {
   COLOR_AXIS_LABEL, COLOR_DANGER, COLOR_INFO, COLOR_PRIMARY, COLOR_SPLIT_LINE, COLOR_SUCCESS,
 } from '../utils/chartTheme'
-
-echarts.use([LineChart, GridComponent, LegendComponent, MarkLineComponent, TooltipComponent, CanvasRenderer])
 
 const props = defineProps<{
   points: BudgetCurvePoint[]
@@ -17,9 +12,6 @@ const props = defineProps<{
   budget?: number | null
   title?: string
 }>()
-
-const el = ref<HTMLDivElement | null>(null)
-let chart: echarts.ECharts | null = null
 
 const option = computed(() => {
   const markLines: Array<Record<string, unknown>> = []
@@ -76,26 +68,15 @@ const option = computed(() => {
     ],
   }
 })
-
-function render() {
-  if (!el.value) return
-  if (!chart) chart = echarts.init(el.value)
-  chart.setOption(option.value, true)
-}
-function onResize() { chart?.resize() }
-onMounted(() => { render(); window.addEventListener('resize', onResize) })
-onUnmounted(() => { window.removeEventListener('resize', onResize); chart?.dispose(); chart = null })
-watch(() => [props.points, props.recommendedK], render, { deep: true })
 </script>
 
 <template>
   <div>
     <div v-if="title" class="title">{{ title }}</div>
-    <div ref="el" class="chart" />
+    <BaseChart :option="option" height="320px" />
   </div>
 </template>
 
 <style scoped>
 .title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-.chart { width: 100%; height: 320px; }
 </style>

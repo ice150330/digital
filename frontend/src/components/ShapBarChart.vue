@@ -1,11 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import * as echarts from 'echarts/core'
-import { BarChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-
-echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer])
+import { computed } from 'vue'
+import BaseChart from './BaseChart.vue'
+import { COLOR_SHAP_POS, COLOR_SHAP_NEG, COLOR_TEXT, axisTheme } from '../utils/chartTheme'
 
 export interface ShapItem {
   name: string
@@ -17,8 +13,7 @@ const props = defineProps<{
   title?: string
 }>()
 
-const el = ref<HTMLDivElement | null>(null)
-let chart: echarts.ECharts | null = null
+const axis = axisTheme()
 
 const option = computed(() => {
   const rows = [...props.items].slice(0, 12).reverse()
@@ -33,14 +28,14 @@ const option = computed(() => {
     },
     xAxis: {
       type: 'value',
-      axisLabel: { color: '#909399' },
-      splitLine: { lineStyle: { color: '#ebeef5' } },
+      axisLabel: { color: axis.axisLabel },
+      splitLine: { lineStyle: { color: axis.splitLine } },
     },
     yAxis: {
       type: 'category',
       data: names,
       axisLabel: {
-        color: '#606266',
+        color: COLOR_TEXT,
         width: 120,
         overflow: 'truncate',
         fontSize: 11,
@@ -52,7 +47,7 @@ const option = computed(() => {
         data: vals.map((v) => ({
           value: v,
           itemStyle: {
-            color: v >= 0 ? '#409eff' : '#f56c6c',
+            color: v >= 0 ? COLOR_SHAP_POS : COLOR_SHAP_NEG,
           },
         })),
         barMaxWidth: 18,
@@ -60,39 +55,12 @@ const option = computed(() => {
     ],
   }
 })
-
-function render() {
-  if (!el.value) return
-  if (!chart) chart = echarts.init(el.value)
-  chart.setOption(option.value, true)
-}
-
-function onResize() {
-  chart?.resize()
-}
-
-onMounted(() => {
-  render()
-  window.addEventListener('resize', onResize)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', onResize)
-  chart?.dispose()
-  chart = null
-})
-
-watch(
-  () => props.items,
-  () => render(),
-  { deep: true },
-)
 </script>
 
 <template>
   <div>
     <div v-if="title" class="title">{{ title }}</div>
-    <div ref="el" class="chart" />
+    <BaseChart :option="option" />
     <p class="legend muted">蓝 = 推向转化 · 红 = 拉低转化（贡献方向，非严格因果）</p>
   </div>
 </template>
@@ -102,10 +70,6 @@ watch(
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 8px;
-}
-.chart {
-  width: 100%;
-  height: var(--chart-height);
 }
 .legend {
   margin: 4px 0 0;

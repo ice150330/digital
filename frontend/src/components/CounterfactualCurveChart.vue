@@ -1,14 +1,9 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import * as echarts from 'echarts/core'
-import { LineChart, ScatterChart } from 'echarts/charts'
-import { GridComponent, MarkLineComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
+import { computed } from 'vue'
+import BaseChart from './BaseChart.vue'
 import {
   COLOR_AXIS_LABEL, COLOR_DANGER, COLOR_PRIMARY, COLOR_SPLIT_LINE,
 } from '../utils/chartTheme'
-
-echarts.use([LineChart, ScatterChart, GridComponent, MarkLineComponent, TooltipComponent, CanvasRenderer])
 
 const props = defineProps<{
   feature: string
@@ -18,9 +13,6 @@ const props = defineProps<{
   baseProba: number
   targetProba?: number
 }>()
-
-const el = ref<HTMLDivElement | null>(null)
-let chart: echarts.ECharts | null = null
 
 const option = computed(() => ({
   grid: { left: 56, right: 24, top: 24, bottom: 32 },
@@ -67,22 +59,8 @@ const option = computed(() => ({
     },
   ],
 }))
-
-function render() {
-  if (!el.value) return
-  if (!chart) chart = echarts.init(el.value)
-  chart.setOption(option.value, true)
-}
-function onResize() { chart?.resize() }
-onMounted(() => { render(); window.addEventListener('resize', onResize) })
-onUnmounted(() => { window.removeEventListener('resize', onResize); chart?.dispose(); chart = null })
-watch(() => [props.grid, props.proba], render, { deep: true })
 </script>
 
 <template>
-  <div ref="el" class="chart" />
+  <BaseChart :option="option" />
 </template>
-
-<style scoped>
-.chart { width: 100%; height: 260px; }
-</style>

@@ -53,7 +53,7 @@ onMounted(load)
     <ElCard v-else-if="data?.rules?.length" shadow="never" class="section-card">
       <template #header>
         规则表
-        <span class="muted mono" style="margin-left: 8px">
+        <span class="muted mono ml-sm">
           {{ data.method }} · n={{ data.n_rules }}
         </span>
       </template>

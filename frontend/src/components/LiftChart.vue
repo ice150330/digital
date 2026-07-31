@@ -1,21 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import * as echarts from 'echarts/core'
-import { BarChart, LineChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
+import { computed } from 'vue'
+import BaseChart from './BaseChart.vue'
 import type { LiftDecile } from '../api/models'
 import { COLOR_PRIMARY, COLOR_WARNING, COLOR_AXIS_LABEL, COLOR_SPLIT_LINE } from '../utils/chartTheme'
-
-echarts.use([BarChart, LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
 const props = defineProps<{
   deciles: LiftDecile[]
   title?: string
 }>()
-
-const el = ref<HTMLDivElement | null>(null)
-let chart: echarts.ECharts | null = null
 
 const option = computed(() => ({
   legend: { top: 0, textStyle: { color: COLOR_AXIS_LABEL, fontSize: 11 } },
@@ -66,26 +58,15 @@ const option = computed(() => ({
     },
   ],
 }))
-
-function render() {
-  if (!el.value) return
-  if (!chart) chart = echarts.init(el.value)
-  chart.setOption(option.value, true)
-}
-function onResize() { chart?.resize() }
-onMounted(() => { render(); window.addEventListener('resize', onResize) })
-onUnmounted(() => { window.removeEventListener('resize', onResize); chart?.dispose(); chart = null })
-watch(() => props.deciles, render, { deep: true })
 </script>
 
 <template>
   <div>
     <div v-if="title" class="title">{{ title }}</div>
-    <div ref="el" class="chart" />
+    <BaseChart :option="option" />
   </div>
 </template>
 
 <style scoped>
 .title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-.chart { width: 100%; height: var(--chart-height); }
 </style>

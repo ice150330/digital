@@ -1,78 +1,46 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch } from 'vue'
-import * as echarts from 'echarts/core'
-import { BarChart } from 'echarts/charts'
-import { GridComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
-
-echarts.use([BarChart, GridComponent, TooltipComponent, CanvasRenderer])
+import { computed } from 'vue'
+import BaseChart from './BaseChart.vue'
+import { COLOR_PRIMARY, axisTheme } from '../utils/chartTheme'
 
 const props = defineProps<{
   channels: Array<{ channel?: string; n?: number; conversion_rate?: number }>
 }>()
 
-const el = ref<HTMLDivElement | null>(null)
-let chart: echarts.ECharts | null = null
+const axis = axisTheme()
 
-function render() {
-  if (!el.value) return
-  if (!chart) chart = echarts.init(el.value)
+const option = computed(() => {
   const names = props.channels.map((c) => String(c.channel ?? '—'))
   const rates = props.channels.map((c) => Number(c.conversion_rate ?? 0) * 100)
-  chart.setOption(
-    {
-      grid: { left: 48, right: 16, top: 24, bottom: 40 },
-      tooltip: {
-        trigger: 'axis',
-        valueFormatter: (v: number) => `${Number(v).toFixed(2)}%`,
-      },
-      xAxis: {
-        type: 'category',
-        data: names,
-        axisLabel: { color: '#909399', fontSize: 11 },
-      },
-      yAxis: {
-        type: 'value',
-        name: '转化率%',
-        axisLabel: { color: '#909399' },
-        splitLine: { lineStyle: { color: '#ebeef5' } },
-      },
-      series: [
-        {
-          type: 'bar',
-          data: rates,
-          itemStyle: { color: '#409eff' },
-          barMaxWidth: 36,
-        },
-      ],
+  return {
+    grid: { left: 48, right: 16, top: 24, bottom: 40 },
+    tooltip: {
+      trigger: 'axis',
+      valueFormatter: (v: number) => `${Number(v).toFixed(2)}%`,
     },
-    true,
-  )
-}
-
-function onResize() {
-  chart?.resize()
-}
-
-onMounted(() => {
-  render()
-  window.addEventListener('resize', onResize)
+    xAxis: {
+      type: 'category',
+      data: names,
+      axisLabel: { color: axis.axisLabel, fontSize: 11 },
+    },
+    yAxis: {
+      type: 'value',
+      name: '转化率%',
+      axisLabel: { color: axis.axisLabel },
+      splitLine: { lineStyle: { color: axis.splitLine } },
+    },
+    series: [
+      {
+        type: 'bar',
+        data: rates,
+        itemStyle: { color: COLOR_PRIMARY },
+        barMaxWidth: 36,
+      },
+    ],
+  }
 })
-onUnmounted(() => {
-  window.removeEventListener('resize', onResize)
-  chart?.dispose()
-  chart = null
-})
-watch(() => props.channels, () => render(), { deep: true })
 </script>
 
 <template>
-  <div ref="el" class="chart" />
+  <BaseChart :option="option" />
 </template>
-
-<style scoped>
-.chart {
-  width: 100%;
-  height: var(--chart-height);
-}
-</style>

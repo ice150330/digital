@@ -13,7 +13,7 @@ defineProps<{
       <div v-for="(t, i) in trace" :key="i" class="trace-item">
         <div>
           <ElTag :type="t.ok ? 'success' : 'danger'" size="small">{{ t.tool }}</ElTag>
-          <span class="mono muted" style="margin-left: 8px">{{ JSON.stringify(t.args || {}) }}</span>
+          <span class="mono muted args">{{ JSON.stringify(t.args || {}) }}</span>
         </div>
         <pre v-if="t.error" class="err">{{ t.error }}</pre>
         <pre v-else class="json">{{ JSON.stringify(t.result, null, 2) }}</pre>
@@ -26,11 +26,14 @@ defineProps<{
 .trace-item {
   margin-bottom: 10px;
 }
+.args {
+  margin-left: var(--space-sm);
+}
 .json,
 .err {
   font-family: var(--font-mono);
   font-size: 11px;
-  background: #f5f7fa;
+  background: var(--color-code-bg);
   padding: 8px;
   border-radius: 6px;
   overflow: auto;

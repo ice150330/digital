@@ -1,12 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
-import * as echarts from 'echarts/core'
-import { ScatterChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
-import { CanvasRenderer } from 'echarts/renderers'
+import { computed } from 'vue'
+import BaseChart from './BaseChart.vue'
 import { clusterColor, COLOR_AXIS_LABEL, COLOR_SPLIT_LINE } from '../utils/chartTheme'
-
-echarts.use([ScatterChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
 
 interface PcaPoint { x: number; y: number; cluster: number; customer_id?: number }
 
@@ -15,9 +10,6 @@ const props = defineProps<{
   autoNames?: Record<string, string>
   title?: string
 }>()
-
-const el = ref<HTMLDivElement | null>(null)
-let chart: echarts.ECharts | null = null
 
 const option = computed(() => {
   const clusters = [...new Set(props.points.map((p) => p.cluster))].sort((a, b) => a - b)
@@ -49,26 +41,15 @@ const option = computed(() => {
     })),
   }
 })
-
-function render() {
-  if (!el.value) return
-  if (!chart) chart = echarts.init(el.value)
-  chart.setOption(option.value, true)
-}
-function onResize() { chart?.resize() }
-onMounted(() => { render(); window.addEventListener('resize', onResize) })
-onUnmounted(() => { window.removeEventListener('resize', onResize); chart?.dispose(); chart = null })
-watch(() => [props.points, props.autoNames], render, { deep: true })
 </script>
 
 <template>
   <div>
     <div v-if="title" class="title">{{ title }}</div>
-    <div ref="el" class="chart" />
+    <BaseChart :option="option" height="320px" />
   </div>
 </template>
 
 <style scoped>
 .title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-.chart { width: 100%; height: 320px; }
 </style>
