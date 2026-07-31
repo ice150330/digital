@@ -2,12 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 项目状态（2026-07-30）
+## 项目状态（2026-07-31）
 
-本科毕设仓库：**数字营销转化分析 + 工具接地 AI Copilot**。
+本科毕设仓库：**数字营销转化分析 + 工具接地 AI Copilot + Pi 真实编排中枢**。
 
-**已落地：** M0 + 清洗/split + **E0–E8 全实验矩阵**（含 SMOTE/泄漏消融/Stacking/校准）+ CV/CI/曲线/lift/阈值扫描 + SHAP/PDP/反事实 + 多算法分群/PCA/稳定性 + 规则 + **预算模拟器** + 全量 API + **前端九路由** + **Pi 编排中枢**（默认 runtime=pi、7 skills、一键报告、审计回放）。  
+**已落地：** M0 + 清洗/split + **E0–E8 全实验矩阵**（含 SMOTE/泄漏消融/Stacking/校准）+ CV/CI/曲线/lift/阈值扫描 + SHAP/PDP/反事实 + 多算法分群/PCA/稳定性 + 规则 + **预算模拟器** + 全量 API + **前端十路由**（+`/screen` 全屏大屏）+ **Pi 真实编排**（v0.83.0 SDK 桥接：`createAgentSession` + customTools 宿主代理，默认 runtime=pi、失败降级 local）。
+**2026-07-31 重构：** `@tool` 装饰器一处注册、L1 描述性端点（dashboard/cross-matrix）、`render_chart` 图表工具（会话内联出图）、BaseChart 封装与色板单一真相、侧栏四层叙事分组、反事实/E4·E6 叙事降级（E5/E7/E8 主线保留）。  
 **端口：** API **9800** · 前端 **5600**。  
+**验证：** `pytest` 114 passed。  
 **P2 默认不做。**
 
 权威约束不在本文件重复展开：
@@ -59,15 +61,19 @@ python scripts/run_all.py
 python scripts/run_all.py --with-p1
 python scripts/run_all.py --with-p1 --full
 
-# 项目内 Pi stub/安装（禁止全局 pi）
+# 项目内 Pi SDK 安装（@earendil-works/pi-coding-agent + typebox；禁止全局 pi）
 python scripts/setup_pi_cli.py
+# Pi 编排可选 env：DEEPSEEK_API_KEY（LLM 凭证）、PI_BRIDGE_MODEL（默认 deepseek/deepseek-chat）
 
 # 测试
 pytest
 pytest tests/test_api_core.py
 pytest tests/test_agent_tools.py
+pytest tests/test_agent_config.py
+pytest tests/test_api_dashboard.py
 pytest tests/test_segment_rules.py
 pytest tests/test_pi_path.py
+pytest tests/test_pi_bridge.py
 pytest tests/test_train_full.py
 pytest tests/test_simulate.py
 pytest tests/test_counterfactual.py
@@ -101,11 +107,12 @@ Vue SPA (frontend/)  ──REST /api/v1/*──►  FastAPI (src/digital_marketi
                │                    │
                └──────────┬─────────┘
                           ▼
-                tools/pi-cli/（可选，项目内）
+        tools/pi-cli/（Pi SDK 桥接：bridge/chat.mjs ↔ loopback /agent/tool-run）
 ```
 
 - **双轨存储：** 营销行在 SQLite；模型/metrics/SHAP 等分析产物在 `outputs/` **文件**，**不进** SQLite。CSV 只读真相源。
 - **内核与 Agent 分离**：指标与模型只来自分析产物；Agent 工具只读门面/产物，不编造数字。
+- **Pi 宿主接地**：Pi（同进程 SDK）经 customTools 代理 HTTP loopback 回宿主 `POST /agent/tool-run` 实算；`noTools:'builtin'` 禁内置文件/shell 工具；工具清单来自 `GET /agent/tools/manifest`（@tool 声明为唯一真相）。
 - **包名**：`digital_marketing`，代码在 `src/digital_marketing/`。
 - **依赖方向**：`data` → `features` → `models` → `explain`；`segment` 训练不含标签；`api` 调服务门面；`pi_runtime` 禁止 PATH/`which pi` 回退。
 
@@ -132,24 +139,28 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 - **已实现：**
   - `GET /health`（`database_ok`、`campaigns_count`、`artifacts_ok`、`default_run_id`）
   - `GET /data/overview`、`GET /meta/features`
+  - `GET /data/dashboard`（KPI/伪漏斗/直方图 + caliber 口径）、`GET /data/cross-matrix`（维度白名单）
   - `GET /models/metrics`、`GET /models/metrics/{run_id}`、`POST /models/predict`、`POST /models/predict/batch`
   - `GET /models/curves`、`GET /models/calibration`、`GET /models/lift`、`GET /models/threshold-scan`
   - `GET /explain/global`、`POST /explain/customer`、`GET /explain/pdp`、`POST /explain/counterfactual`
   - `GET /segments`、`POST /segments/assign`、`GET /segments/compare`、`GET /segments/projection`、`GET /rules`
   - `POST /simulate/budget`（期望值口径；`export=true` 落 CSV）
   - `POST /agent/chat`、`GET /agent/sessions/{id}`、`POST /agent/runtime`、`GET /agent/pi/status`
+  - `GET /agent/tools/manifest`、`POST /agent/tool-run`（Pi 桥接：工具清单 + loopback 执行口）
   - `GET /agent/audit/recent`、`POST /agent/report`（一键分析报告 → `outputs/reports/`）
 - 预测须带回 `proba` / `label` / `threshold` / `run_id`；解释带回 `top_features` + `method`。
 - 默认 run：非 Dummy **非消融**中 PR-AUC 最高，0.01 窗口近并列偏好纯树/LightGBM（stacking 不享树加成；E5/E6 消融 run 代码级排除）。
 - Agent 输出契约：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace`。
-- Runtime：**默认 `pi`（编排中枢）**；stub/未安装明确降级 local 并在响应 `pi_fallback` + `open_questions` 标注；`pi` 仅 `tools/pi-cli/`（`config/agent.yaml` → `pi.executable`）；无 Key 可 `template`。
+- Runtime：**默认 `pi`（真实编排中枢）**；桥接未就绪/失败明确降级 local 并在响应 `pi_fallback` + `open_questions` 标注；`pi` 仅 `tools/pi-cli/`（SDK 包 + `bridge/chat.mjs`）；无 Key 可 `template`。
+- 工具注册：`@tool` 装饰器一处定义（catalog.py）；新增工具同步 `agent.yaml` whitelist + 本节 + CHANGE。
 - 审计：`outputs/agent_logs/*.jsonl`；会话：`outputs/agent_sessions/`；skills：`agent/skills/*/SKILL.md` ×7。
 
 ## 前端要点（细节见 DESIGN）
 
-- 栈：**Vue 3 + Vite + Element Plus + ECharts + axios**（勿擅自换 React 等）。ECharts 按需引入，图表色统一 `utils/chartTheme.ts`。
-- 路由：`/` `/models` `/customers` `/segments` `/rules` `/simulate` `/agent` `/pi` `/about` 九路由均已挂真数据页。
+- 栈：**Vue 3 + Vite + Element Plus + ECharts + axios**（勿擅自换 React 等）。ECharts 经 `utils/echarts.ts` 按需注册；所有图表经 `BaseChart` 渲染；图表色统一 `utils/chartTheme.ts`（与 tokens.css 单一真相）。
+- 路由：`/screen`（大屏，`meta.fullscreen` 绕过布局）`/` `/models` `/customers` `/segments` `/rules` `/simulate` `/agent` `/pi` `/about` 十路由均已挂真数据页；侧栏五组四层叙事（总览大屏 → 描述性分析 → 预测建模 → 深度挖掘 → AI 与系统）。
 - 数字一律来自后端；禁止前端假造 AUC。`baseURL` 用 `VITE_API_BASE_URL`。
+- `/agent` 页对 `render_chart` 工具结果经 `ChartCard` 内联渲染 chart-spec。
 - 组件视觉参考：`pen/ui.pen`（KpiCard、ShapBarChart、ToolTracePanel 等）。
 
 ## 改动纪律
@@ -164,5 +175,5 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 
 ## 实现优先级提示
 
-P0/P1/阶段8/阶段9 主线已齐；后续仅答辩彩排与文案微调。  
-永不砍：防泄漏叙述、PR-AUC 主指标、可运行 API、工具接地 Agent、Pi 仅 `tools/pi-cli/`、E5/E6 消融不参选默认 run、反事实/模拟的「非因果」口径。
+P0/P1/阶段8/阶段9 + 2026-07-31 重构计划（Stage 1–6）主线已齐；后续仅答辩彩排与文案微调。  
+永不砍：防泄漏叙述、PR-AUC 主指标、可运行 API、工具接地 Agent（数字永不出宿主）、Pi 仅 `tools/pi-cli/`、E5/E6 消融不参选默认 run、反事实/模拟的「非因果」口径、伪漏斗横截面口径（时序永不做）。

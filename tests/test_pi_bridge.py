@@ -127,6 +127,16 @@ def test_pi_status_has_bridge_fields():
         assert st["bridge_note"]
 
 
+def test_pi_status_api_exposes_bridge_fields(client: TestClient):
+    """DTO 层守门：bridge_ready 必须经 API 透出（防 pydantic 丢额外字段）。"""
+    r = client.get("/api/v1/agent/pi/status")
+    assert r.status_code == 200
+    d = r.json()["data"]
+    assert "bridge_ready" in d
+    assert "bridge_note" in d
+    assert isinstance(d["bridge_ready"], bool)
+
+
 def test_run_pi_chat_fallback_when_bridge_not_ready(monkeypatch, tmp_path):
     """桥接未就绪 → 降级 local，pi_fallback=True + open_questions 中文原因（契约不变）。"""
     monkeypatch.setattr(pr, "_bridge_ready", lambda: (False, "测试：桥接未就绪"))

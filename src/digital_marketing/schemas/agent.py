@@ -50,6 +50,9 @@ class PiStatusData(BaseModel):
     skills_detail: list[dict[str, Any]] = Field(default_factory=list)
     sessions_count: int = 0
     fallback_reason: str | None = None
+    # Stage 5：桥接三要素就绪状态（脚本/node/SDK 包）
+    bridge_ready: bool = False
+    bridge_note: str | None = None
 
 
 class ReportRequest(BaseModel):
