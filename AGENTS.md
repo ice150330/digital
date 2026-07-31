@@ -8,7 +8,7 @@
 > - **`CHANGE.md`：** 每次有意义修改的人工记录  
 > **冲突优先级：** 硬性禁止项以本文件为准；前端视觉/交互以 `DESIGN.md` 为准；范围以计划书为准。  
 > **语言：** 用户可见说明、文档、注释（非标识符）用**中文**。  
-> **最后同步：** 2026-07-30（v0.5：阶段9 算法深化 — E0–E8 全矩阵 + CV/CI/校准/曲线 + PDP/反事实 + 多算法分群 + 预算模拟；Pi 为默认编排 runtime）
+> **最后同步：** 2026-07-31（v0.6：重构计划 Stage 1–4/6 — agent 配置统一 + @tool 装饰器一处注册 + runtime 分发上提 + 运行时缓存；`/data/dashboard`+`/data/cross-matrix` 描述性端点（横截面口径）；`render_chart` 图表工具 + chart-spec v1.0；Pi 侦察报告锁定 A 主 B 兜底协议，真实编排待安装后落实）
 
 ---
 
@@ -169,15 +169,16 @@ src/digital_marketing/
   rules/
   simulate/      # budget（期望值口径）
   agent/
-    tools/
+    config.py    # Stage 1：agent.yaml 统一加载（缓存 + pydantic 校验）
+    tools/       # __init__ 装饰器注册中心 + catalog 实现 + facts 抽取器
     prompts/
     skills/      # 项目内 Pi --skill（7 个 SKILL.md）
     local_runtime.py
     pi_runtime.py
-    grounding.py
+    grounding.py # 五段契约 + facts_from_tool 分派壳
     audit.py
     report.py
-    service.py
+    service.py   # runtime 分发（pi → run_pi_chat / 其余 → local）
   api/
     main.py
     deps.py
@@ -365,7 +366,8 @@ outputs/db/            # SQLite app.db（主数据轨，可重建）
 - 默认 runtime：**`pi`**（编排中枢）；stub/未安装/失败时**明确降级 local 并在响应 `pi_fallback` 与 `open_questions` 标注**；无 Key 可 `template`。  
 - 输出字段：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace`。  
 - skills 生态：`agent/skills/<name>/SKILL.md` ×7（frontmatter name/description + 编排步骤 + 口径红线）；模板模式复用同套编排，保证无 Key 可演示。  
-- 一键报告：`generate_analysis_report` 编排工具 → markdown 落盘 `outputs/reports/analysis_<ts>.md`，数字全部来自工具结果，尾部固定「口径与限制」节。  
+- 一键报告：`generate_analysis_report` 编排工具 → markdown 落盘 `outputs/reports/analysis_<ts>.md`，数字全部来自工具结果，尾部固定「口径与限制」节。
+- **图表工具（Stage4）：** `render_chart` 由宿主从真实数据源（SQLite/产物）计算数据 → 返回 chart-spec v1.0 纯 JSON；前端 `ChartCard` 映射渲染，**色板以前端 tokens 为唯一真相**；LLM/Pi 永不产数字、**永不产 spec**（Pi 集成层输出仅叙述文本）。  
 
 ### 9.2 工具注册表
 
@@ -386,8 +388,9 @@ outputs/db/            # SQLite app.db（主数据轨，可重建）
 | `simulate_budget` | 阶段9 |
 | `counterfactual_explain` | 阶段9 |
 | `generate_analysis_report` | 阶段9 |
+| `render_chart`（声明式图表 spec，9 数据集 × 6 图型） | Stage4 |
 
-新增工具：更新本节 + `tools/catalog.py` 实现 + REGISTRY 注册 + plan_tools 关键词 + grounding 分支 + `agent.yaml` whitelist + 单测 + CHANGE（五处联动）。
+新增工具（Stage 1 起）：**一处定义**——`tools/catalog.py` 用 `@tool(name, keywords=..., base_kwargs=..., plan=..., facts=..., plan_order=..., stage=...)` 装饰器声明，REGISTRY 注册、`plan_from_message` 关键词路由、grounding 事实分派（`tools/facts.py`）自动生效；再更新本节表格 + `agent.yaml` `tools.whitelist`（非空时 run_tool 校验交集）+ 单测 + CHANGE。旧入口 `plan_tools`/`facts_from_tool`/`try_pi_or_fallback` 为兼容别名。
 
 ### 9.3 项目内 Pi CLI
 
@@ -451,6 +454,8 @@ PiRuntime.run()
 |------|------|------|
 | GET | `/health` | P0 |
 | GET | `/data/overview` | P0 |
+| GET | `/data/dashboard` | Stage3（大屏聚合：KPI/伪漏斗/直方图 + caliber 口径字段） |
+| GET | `/data/cross-matrix` | Stage3（二维交叉转化率矩阵；维度白名单 channel/type/gender） |
 | GET | `/meta/features` | P0 |
 | GET | `/models/metrics` | P0 |
 | GET | `/models/metrics/{run_id}` | P0 |
@@ -482,7 +487,12 @@ PiRuntime.run()
 - **预测：** `proba`, `label`, `threshold`, `run_id`, `model_name`  
 - **解释：** `top_features[{name, feature_value, shap_value}]`, `method`, `run_id`  
 - **Agent：** 五段字段 + `tool_trace` + `session_id` + `runtime` + `pi_fallback`（Pi 降级标注）  
-- **模拟：** `curve[{k, expected_net, ...}]` + `recommended_k` + `top_list`（≤50 预览）+ `disclaimer`  
+- **模拟：** `curve[{k, expected_net, ...}]` + `recommended_k` + `top_list`（≤50 预览）+ `disclaimer`
+- **chart-spec v1.0（Stage4 `render_chart`）：** `{spec_version, chart_type(bar|line|pie|scatter|heatmap|funnel), title, categories[], series[{name,values[]}], value_format(int|float4|percent2|money), axis{x_name,y_name}, caliber, source{kind,ref,run_id}, disclaimer?}`；数据集白名单 9 项（conversion_by_channel/type、leaderboard_pr、age/income/adspend_hist、segment_sizes、lift_deciles、global_shap_top）；越界 `VALIDATION_ERROR`
+- **大屏聚合（Stage3 描述性口径，后端为真相源）：**
+  - 伪漏斗四阶段（`services/dashboard.py::FUNNEL_STAGES`）：`clicked`(email_clicks>0 OR click_through_rate>0) → `visited`(website_visits>0) → `deep_visited`(visited AND pages_per_visit≥2) → `converted`(conversion=1)
+  - **横截面独立计数、非 cohort、阶段不嵌套**（阶段间差异不构成流失率/环比）；原始数据无业务时间字段，**时序永不可做**
+  - `caliber` 字段前端必须原样展示，禁止前端自造口径文案  
 
 ### 10.4 错误码示例
 
@@ -582,7 +592,7 @@ cd frontend && npm install && npm run dev
 # 前端开发端口 5600；API baseURL → http://127.0.0.1:9800/api/v1
 ```
 
-**实现状态摘要：** 清洗/训练 E0–E8 全矩阵（Stacking/校准/消融）/SHAP/PDP/反事实/多算法分群/预算模拟/全量 API（含模拟与报告）/九路由前端/Pi 编排中枢（默认 runtime + 7 skills + 一键报告 + 审计回放）已落地。开发端口：API **9800**、前端 **5600**。P2（RAG、K8s、多租户、因果 uplift 主线）默认不做。
+**实现状态摘要：** 清洗/训练 E0–E8 全矩阵（Stacking/校准/消融）/SHAP/PDP/反事实/多算法分群/预算模拟/全量 API（含模拟与报告 + Stage3 描述性聚合 dashboard/cross-matrix）/十路由前端（+/screen 大屏，四层叙事分组）/Agent 装饰器工具注册 + render_chart 图表工具（chart-spec v1.0 会话内联渲染）/Pi 编排中枢（默认 runtime + 7 skills + 一键报告 + 审计回放；真实编排协议已侦察锁定，待真实安装落实）已落地。开发端口：API **9800**、前端 **5600**。P2（RAG、K8s、多租户、因果 uplift 主线）默认不做。
 
 ---
 

@@ -26,6 +26,74 @@
 
 ## 变更日志
 
+## 2026-07-31 — Stage 6：侧栏四层叙事分组 + 叙事降级 + 交互动效 + 文档总升版
+
+- **类型：** feat / design
+- **范围：** `frontend/src/layouts/AppLayout.vue`、`views/{CustomersView,ModelsView}.vue`、`App.vue`、`style.css`、`DESIGN.md`(v0.5.0)、`AGENTS.md`(v0.6)
+- **摘要：**
+  - 侧栏重构为**五组叙事分组**：总览大屏 → 描述性分析 → 预测建模 → 深度挖掘 → AI 与系统，显式呈现「数据分析→数据挖掘由浅入深」；首用 @element-plus/icons-vue（图标均带 title）；**兑现 DESIGN §3.2 折叠欠账**（200↔64，transition 0.18s，<992px 自动图标栏）
+  - **叙事降级（仅前端呈现层，代码/端点完整保留）：** CustomersView 反事实面板收进 ElCollapse 默认收起（标题注「模型行为分析（敏感性），非因果」）；ModelsView E4 SMOTE / E6 flag 消融行 `muted-row` 弱化 + 「展示降权」tag；**E5 泄漏消融、E7 Stacking、E8 校准、多算法分群对比保持主线**（用户确认）
+  - 路由切换轻 fade（150ms out-in，`prefers-reduced-motion` 关）——治理「全仓 0 transition」
+  - 文档总升版：DESIGN v0.5.0（§3.2 折叠实现、§20 版本记录）；AGENTS v0.6（头部同步说明、§13 实现状态刷新：十路由/图表工具/Pi 侦察锁定）
+- **原因：** 落实重构计划 Stage 6 与用户精简清单（反事实 + E4/E6 两项叙事降级）
+- **影响：** 答辩动线：大屏开场 → 描述性 → 预测建模 → 深度挖掘 → AI 与系统；降级项演示时手动展开即可
+- **破坏性：** 无（Pinia 本轮仍不引入：折叠态为组件本地状态，无需跨组件共享）
+- **验证：** `pytest` 全量 **105 项绿**（94 基线 + 6 dashboard + 5 render_chart）；`npm run build` 绿；待人工目检答辩动线（DESIGN §18 清单）
+
+## 2026-07-31 — Stage 4：render_chart 声明式图表工具 + /agent 内联 ChartCard（AI 会话生成图表）
+
+- **类型：** feat
+- **范围：** `agent/tools/catalog.py`（唯一实现点，装饰器注册实证）、`config/agent.yaml`（whitelist +1）、`frontend/src/components/ChartCard.vue(新)`、`frontend/src/views/AgentView.vue`、`tests/test_agent_tools.py`、`AGENTS.md`、`DESIGN.md`
+- **摘要：**
+  - `render_chart` 工具：chart_type 白名单（bar/line/pie/scatter/heatmap/funnel）× dataset 白名单 9 项（渠道/类型转化、leaderboard PR-AUC、年龄/收入/支出分布、分群规模、lift 十分位、全局 SHAP），宿主从 SQLite/产物计算真实数据 → 返回 **chart-spec v1.0 纯 JSON**（含 caliber/source/disclaimer）；越界 VALIDATION_ERROR
+  - 关键词规划按消息推断 dataset（"画各渠道转化率柱状图"→conversion_by_channel；"画分群规模占比饼图"→pie/segment_sizes）；facts 抽取器**只述存在性不重复数字**（数字在图里）
+  - 前端 `ChartCard.vue`：spec→option 映射（bar/line/pie，长类目自动横向，色板走 chartTheme 单一真相），caliber/disclaimer 脚注，未知图型兜底不崩；AgentView 对 render_chart 成功 trace 条目内联渲染，示例 chips +3
+- **原因：** 用户需求「制作图表工具，让 AI 在会话中生成前端各种图表」；Stage 1 装饰器使新工具真正只改 catalog.py 一处（白名单配置 +1 除外）
+- **影响：** /agent 可对话出图；红线：LLM/Pi 永不产 spec，spec 永由宿主工具产出（AGENTS §9.1 补录）
+- **破坏性：** 无
+- **验证：** `tests/test_agent_tools.py` +5 项（纯 JSON 序列化、9 数据集、白名单拒绝、facts 无数字、规划路由）共 25 项绿
+
+## 2026-07-31 — Stage 3：L1 描述性后端 + /screen 全屏大屏（数据分析→数据挖掘开场全景）
+
+- **类型：** feat
+- **范围：** `services/dashboard.py(新)`、`schemas/data.py`、`api/routes_data.py`、`frontend/src/{views/ScreenView.vue,styles/screen.css,api/data.ts,router/index.ts,App.vue}`、`frontend/index.html`、`tests/test_api_dashboard.py(新)`、`AGENTS.md`、`DESIGN.md`
+- **摘要：**
+  - 新端点 `GET /data/dashboard`（KPI 聚合 + 伪漏斗四阶段 + 年龄/收入/AdSpend 10 等宽箱直方图 + caliber 口径字段）与 `GET /data/cross-matrix`（维度白名单 channel/type/gender，越界 422），走 SQLite 主数据轨只读 SQL
+  - `/screen` 全屏大屏（`meta.fullscreen` 绕过 AppLayout）：KPI 磁贴 ×6、行为伪漏斗、渠道转化、渠道×类型热力、分布 ×3、E0–E8 mini 榜、SHAP Top8、页脚 caliber + 免责声明；`data-theme="screen"` 作用域暗色（深蓝分层底 + 8 色数据色板 + Rajdhani 数字字体 CDN swap 离线回退）；板块独立请求独立降级，不造假数
+  - **口径红线：** 伪漏斗为横截面独立计数、非 cohort、阶段不嵌套——故用柱状图而非漏斗形（实测 converted=7012 > deep_visited=7011，漏斗形会乱序误导）；数据无时间字段，时序永不做；caliber 后端产出前端原样渲染
+- **原因：** 落实重构计划 Stage 3 与用户决策（新增 /screen、L1 全补），补齐四层叙事中最薄的描述性分析层，答辩开场有全景冲击页
+- **影响：** 导航 9→10 路由；补上 L1 坡度（漏斗/分布/交叉/KPI）；DESIGN §3.1/§3.3/§5.6/§10.10 与 AGENTS §10.2/§10.3 同步
+- **破坏性：** 无
+- **验证：** `tests/test_api_dashboard.py` 6 项绿（漏斗计数与手工 SQL 一致、白名单 422、空表 404）；`npm run build` 绿；真实 8000 行库烟测：KPI/漏斗/20 交叉单元全部正确
+
+## 2026-07-31 — Stage 2：前端图表基建 + 样式收敛（BaseChart + 色板单一真相 + 裸 hex/内联样式清零）
+
+- **类型：** refactor
+- **范围：** `frontend/src/components/{BaseChart.vue(新),10 个图表组件,ToolTracePanel.vue}`、`frontend/src/utils/{echarts.ts(新),chartTheme.ts}`、`frontend/src/styles/tokens.css`、`frontend/src/{style.css,layouts/AppLayout.vue,views/*}`、`DESIGN.md`
+- **摘要：**
+  - 新增 `BaseChart.vue`：init/ResizeObserver（容器级，替代 window resize）/dispose/watch 集中承接，10 个图表组件样板归零，仅保留 `computed option`；ECharts 按需注册集中到 `utils/echarts.ts`（+Funnel/Title 供 Stage 3）
+  - `chartTheme.ts` 修漂移（CHART_COLORS[5] `#9b59b6`→`#b37feb`、COLOR_TEXT `#606266`→`#303133` 对齐 tokens）；新增 `chartColors(theme)`/`axisTheme(theme)`/COLOR_SURFACE/COLOR_HEAT_LOW，screen 分支运行时读 `--screen-chart-1..8`
+  - 裸 hex 清零：AppLayout 状态色改 `var()` 内联、tokens 新增 primary-soft/hover/code-bg/warning-soft/code-dark 系列；ShapBar/ChannelBar/ConfusionHeatmap 硬编码改 chartTheme 常量
+  - 44 处内联 style 收敛为 8px 网格工具类（ml/mr/mt/mb/w-full/input-wide/flex-1，off-grid 12px 归一到 8px），仅保留 2 处控件固定宽度与动态 :style 绑定；图表高度收敛 280/320 两档
+- **原因：** 落实重构计划 Stage 2，为 Stage 3 大屏（BaseChart screen 主题 + 色板作用域）与 Stage 4 ChartCard 铺底座；治理双份色板漂移与样式碎片
+- **影响：** 视觉无感知变化（option 内容逐字未动）；侧栏折叠/窗口缩放图表自适应；DESIGN §8.0 立封装与色板规矩
+- **破坏性：** 无
+- **验证：** `npm run build`（vue-tsc + vite）通过；待人工目检 9 路由图表与间距（清单见 DESIGN §18）
+
+## 2026-07-31 — Stage 1：后端结构重构（配置统一 + 工具装饰器 + 分发上提 + 运行时缓存）
+
+- **类型：** refactor
+- **范围：** `agent/{config.py(新),tools/__init__.py,tools/facts.py(新),tools/catalog.py,grounding.py,local_runtime.py,pi_runtime.py,service.py,audit.py}`、`api/routes_agent.py`、`services/artifacts.py`、`scripts/{02,06}`、`tests/test_agent_config.py(新)`、`AGENTS.md`
+- **摘要：**
+  - 新增 `agent/config.py`：pydantic `AgentConfig` 统一加载 `agent.yaml`（lru_cache + `set_runtime_persisted` 写回失效）；local_runtime/pi_runtime/audit/routes_agent 四处重复 `yaml.safe_load` 收敛为一处
+  - 工具注册改 `@tool(...)` 装饰器（`ToolMeta`：keywords/base_kwargs/plan/facts/plan_order/stage）：新增工具只改 `catalog.py` 一处定义，REGISTRY/关键词规划/grounding 事实分派/whitelist 校验自动生效；`grounding.facts_from_tool` 17 分支逐字搬迁至 `tools/facts.py`，入口签名不变（report.py 无感）
+  - runtime 分发上提 `service.chat`（pi → `pi_runtime.run_pi_chat`，其余 → local）；`run_local_chat` 删除内埋 pi 分支；`try_pi_or_fallback`/`plan_tools` 保留兼容别名，旧测试零修改
+  - `artifacts.load_runtime` / clean.csv 全表加 lru_cache（缓存键含产物根路径，防测试 monkeypatch 跨根污染）；训练脚本 02/06 结尾 `clear_runtime_cache()`
+- **原因：** 落实 2026-07-31 重构计划 Stage 1——消除「新增工具六处手工联动」、runtime 分发错位与重复模型加载，为 Stage 4 图表工具（一处定义实证）与 Stage 5 Pi 真实协议铺路
+- **影响：** 行为零变化（plan 顺序/去重/[:6]/默认兜底/facts 文本逐字一致）；新增工具成本从 6 处降至 1 处；predict_batch 热路径不再重复 joblib.load
+- **破坏性：** 无（`try_pi_or_fallback`、`plan_tools`、`facts_from_tool` 旧入口均保留）
+- **验证：** `pytest` 全量（含新增 test_agent_config.py 8 项：默认值/缓存/写回/whitelist/注册完备/规划回归）；修复一处缓存键无路径导致的测试间污染
+
 ## 2026-07-30 — 阶段9：算法深化 + Pi 编排中枢（红线内拉满）
 
 - **类型：** feat

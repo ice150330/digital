@@ -63,6 +63,7 @@
 
 | 路由 | 名称 | 优先级 | 主要内容 |
 |------|------|--------|----------|
+| `/screen` | 总览大屏 | Stage3 | 全屏暗色作用域（`meta.fullscreen` 绕过 AppLayout）：KPI 磁贴、伪漏斗、渠道/交叉/分布图、E0–E8 mini 榜、SHAP Top8 |
 | `/` | 总览 Dashboard | P0 | KPI、转化分布、质量告警、数据摘要 |
 | `/models` | 模型实验室 | P0 | E0–E8 对比表（CV/CI/Brier）、PR/ROC、校准、混淆矩阵、lift、阈值-成本 |
 | `/customers` | 客户洞察 | P0 | 查 ID/表单特征 → 概率、标签、SHAP、反事实（模型行为口径） |
@@ -98,11 +99,13 @@
 ```
 
 - **桌面优先**（答辩投影 1366×768 及以上可完整使用）  
-- `< 992px`：侧栏收为抽屉；图表允许横向滚动，不挤碎轴标签  
+- **侧栏可折叠**（Stage6 兑现）：五组叙事分组（总览大屏 → 描述性分析 → 预测建模 → 深度挖掘 → AI 与系统），折叠态 64px 仅图标（均带 title 无障碍），width transition 0.18s（reduced-motion 关）；`< 992px` 自动收为图标栏  
+- 图表允许横向滚动，不挤碎轴标签  
 - 内容区最大宽建议 **1280–1440px**，居中，避免超宽拉伸  
 
 ### 3.3 用户关键路径（演示）
 
+0. （开场）`/screen` 大屏全景：规模 → 漏斗 → 渠道/分布 → 模型矩阵 → SHAP，一页讲完由浅入深  
 1. 总览确认数据与质量 →  
 2. 模型页指出 PR-AUC 与 Dummy 陷阱 →  
 3. 客户页解释 1 个高概率样例 →  
@@ -205,8 +208,9 @@
 
 ### 5.6 暗色模式
 
-- **P0 不做**；P2 可选  
-- 若做：必须走 CSS 变量切换，禁止每页手写一套暗色  
+- **全站暗色 P0 不做**；P2 可选  
+- **例外（Stage3）：** `/screen` 大屏为 `data-theme="screen"` **作用域暗色**（`styles/screen.css`，变量仅子树生效，不扩散全站）：深蓝分层底 `#081428/#0c1f3d/#12294e` + 多色数据色板 `--screen-chart-1..8` + 数字字体 Rajdhani（CDN `font-display: swap`，离线落系统回退）；图表经 `BaseChart(theme='screen')` + `chartColors('screen')`。禁止 3D/粒子库（§2）。
+- 若未来做全站暗色：必须走 CSS 变量切换，禁止每页手写一套暗色  
 
 ---
 
@@ -240,6 +244,8 @@
 
 | 组件名建议 | 职责 |
 |------------|------|
+| `BaseChart` | ECharts 生命周期封装（init/ResizeObserver/dispose/watch），props: option/height/theme |
+| `ChartCard` | chart-spec v1.0 → option 映射渲染（bar/line/pie + caliber/disclaimer 脚注），供 `/agent` 内联 |
 | `KpiCard` | 标题、主数值、副文案、`run_id`/来源 hint |
 | `PageHeaderBar` | 标题、描述、右侧 actions |
 | `ModelMetricsTable` | 多模型指标；高亮主指标列 PR-AUC |
@@ -285,6 +291,13 @@
 
 ## 8. 图表规范（ECharts）
 
+### 8.0 封装与主题（Stage 2）
+
+- **唯一出口：** 所有 ECharts 图表经 `components/BaseChart.vue` 渲染（init / ResizeObserver / dispose / watch option 集中承接）；业务图表组件只产出 `computed option` 后 `<BaseChart :option="option" />`，禁止组件内自写 init/resize 样板与 `echarts.use`。
+- **按需注册集中点：** `utils/echarts.ts`（Bar/Line/Scatter/Heatmap/Funnel + Grid/Legend/MarkLine/Title/Tooltip/VisualMap + CanvasRenderer）。
+- **色板单一真相：** `utils/chartTheme.ts` 与 `tokens.css` 逐值对齐；`chartColors(theme)` / `axisTheme(theme)` 支持 default 与 screen（大屏暗色读 `--screen-chart-1..8`）两套作用域，组件内禁止裸 hex。
+- **高度：** 默认 `--chart-height`（280px）；信息密集图（阈值扫描/PCA/预算曲线）传 `height="320px"`，不再散落五档。
+
 ### 8.1 通用
 
 - 每图必有：**标题**（或卡片标题）、**图例**（多系列时）、轴名称（若适用）  
@@ -305,6 +318,8 @@
 | 模拟 | 期望收益曲线（净/毛/转化数） | 推荐 K markLine |
 
 图表颜色统一从 `utils/chartTheme.ts` 常量派生（与 tokens.css 对齐），禁止组件内散落硬编码 hex。
+
+**spec 驱动渲染路径（Stage4）：** 后端 `render_chart` 工具返回 chart-spec v1.0（字段见 AGENTS §10.3），前端 `ChartCard` 按 `chart_type` 映射为 option（色板仍走 `chartColors()`）；`caliber`/`disclaimer` 必须渲染为卡片脚注。新增 chart_type 须同步改 ChartCard 与本节。
 
 ### 8.3 禁止
 
@@ -397,6 +412,7 @@
 - 发送框 + 加载中状态  
 - **Runtime 展示与切换**（默认 pi；切换调后端，失败提示；stub/降级显示原因）  
 - 每条助手消息可展开 **tool_trace**（ToolTracePanel 组件）  
+- **内联图表（Stage4）：** `tool_trace` 中 `render_chart` 成功条目在 ToolTracePanel 上方渲染 `ChartCard`（spec 驱动，数字来自宿主工具非 LLM）  
 - **五段契约完整渲染：** observed_facts / inferences / recommendations / open_questions / tool_trace  
 - `pi_fallback=true` 时显示「Pi 降级」警告 tag  
 - 建议「示例问题」chips（含实验对比/校准/预算/反事实新工具例）降低冷启动  
@@ -413,6 +429,25 @@
 - 数据来源链接/说明  
 - 文档入口：`AGENTS.md` / 本文件 / 计划书路径说明  
 - AI 使用说明摘要（毕设诚信）  
+
+### 10.10 总览大屏 `/screen`（Stage3）
+
+**栅格（CSS Grid 12 列，gap 14，边距 24；1366 档媒体查询收缩）：**
+
+| 行 | 板块（列跨） | 数据源 |
+|---|---|---|
+| Header | 渐变标题 + 「横截面口径·无时序」徽章 ‖ 健康点 + run_id + 返回工作台 | `/health` |
+| R1 | 6× KPI 磁贴（样本量/正类占比/总支出/均CTR/访问深度/复购占比） | `/data/dashboard`.kpis |
+| R2 | 行为伪漏斗(4) ‖ 渠道转化率(4) ‖ 渠道×类型热力(4) | dashboard.funnel / `/data/overview` / `/data/cross-matrix` |
+| R3 | 年龄/收入/AdSpend 直方图 各(4) | dashboard.histograms |
+| R4 | E0–E8 mini 表(7，PR-AUC 主列+Dummy/消融/默认 tag) ‖ SHAP Top8(5) | `/models/metrics` / `/explain/global` |
+| Footer | caliber 原文 + 相关非因果免责声明 | DTO 字段 |
+
+**约束：**
+- 伪漏斗用**柱状图**而非漏斗形（阶段为横截面独立计数、非嵌套，漏斗形会误导出流失率）
+- 每个板块独立请求、独立降级（失败仅该板块提示），全站不造假数
+- 口径文案来自后端 `caliber` 字段，前端原样渲染
+- 入场动画 0.3s，`prefers-reduced-motion` 关闭
 
 ### 10.8 预算模拟 `/simulate`
 
@@ -508,7 +543,7 @@ frontend/
 ## 15. 性能
 
 - 路由级懒加载页面  
-- ECharts 按需引入或统一 chart 封装，避免重复初始化泄漏  
+- ECharts 按需引入统一在 `utils/echarts.ts`；图表经 `BaseChart` 封装（ResizeObserver 监听容器，侧栏折叠/窗口缩放自动 resize，unmount 即 dispose，避免重复初始化泄漏）  
 - 大表分页（规则列表）  
 - 图片资源尽量无（本项目以图为主数据可视化）  
 - 开发环境 source map 可开；提交前注意包体体积不必过度优化  
@@ -566,6 +601,7 @@ frontend/
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v0.5.0 | 2026-07-31 | 重构计划 Stage 2–6：BaseChart 封装与色板单一真相（§8.0）；tokens 工具类收敛内联样式；`/screen` 作用域暗色大屏（§3.1/§5.6/§10.10）；ChartCard spec 驱动内联渲染（§7.2/§8/§10.6）；侧栏四层叙事分组 + 折叠（§3.2，兑现欠账）+ 路由轻 fade（§11）；叙事降级：反事实收折叠区（§10.3）、E4/E6 表格展示降权（§10.2，E5/E7/E8 主线保留） |
 | v0.1.0 | 2026-07-30 | 初版（含全栈设计，已废止该形态） |
 | v0.2.0 | 2026-07-30 | **收窄为前端专用**；架构/后端迁入 AGENTS.md |
 | v0.3.0 | 2026-07-30 | 阶段9：9 路由（+`/simulate` `/pi`）；模型实验室全图化（CV/CI/Brier 列 + 5 类评估图 + 校准）；客户页反事实；分群页对比/投影/稳定性；Agent 五段渲染 + RuntimeBadge/ToolTracePanel 组件化；chartTheme 统一图表色 |
