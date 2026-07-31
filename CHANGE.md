@@ -26,6 +26,32 @@
 
 ## 变更日志
 
+## 2026-07-31 — CLAUDE.md 改进：测试命令、runtime 口径与令牌源引用
+
+- **类型：** docs
+- **范围：** `CLAUDE.md`
+- **摘要：**
+  - 校准 pytest 计数为 **115 passed，1 skipped**（原 114 passed）
+  - 在「常用命令」中补充单条/关键字测试写法：`pytest tests/test_api_core.py::test_health -v`、`pytest -k "predict or explain" -v`
+  - 权威文档表新增 `docs/plans/Design Tokens.md` 作为设计令牌源
+  - 澄清 Pi runtime 默认来源：`config/agent.yaml` 默认 `pi`，`.env.example` 中的 `DIGITAL_AGENT_RUNTIME=local` 仅作覆盖示例
+- **原因：** `/init` 技能要求持续维护 CLAUDE.md；避免新实例误读默认 runtime、遗漏单测命令、不知令牌文档源
+- **影响：** 后续 Claude Code 实例启动更快、口径更准确
+- **破坏性：** 无
+- **验证：** `pytest` 115 passed，1 skipped；CLAUDE.md 链接与引用已核对
+
+## 2026-07-31 — DESIGN.md v0.6.0：基于 Design Tokens v1.0 完全重构 + pen/ui.pen 整页重建
+
+- **类型：** design / docs
+- **范围：** `DESIGN.md`、`docs/plans/Design Tokens.md`（引用为令牌源）、`pen/ui.pen`
+- **摘要：**
+  - DESIGN.md 完全重构至 **v0.6.0**：风格定调「浅色 · 明亮 · 细腻 · 现代」；§6 九类令牌全量收编（品牌主色 `#409EFF`→`#3B82F6` 系、8 色图表序列 `--chart-1..8`、语义化别名 `--bg-*/--text-*/--border-*`、Inter/数字/代码三轨字体、动效三档 150/250/400ms、布局 240/64/64/1440/24、大屏 `[data-theme=screen]` 作用域令牌）；新增 §21 旧→新迁移映射表（tokens.css / chartTheme.ts 的独立 `refactor(frontend)` 迁移路径）与 §22 pen/ui.pen 参考库约定
+  - pen/ui.pen 清空重建：设计令牌样张 + 组件库（状态齐全的可复用组件）+ **十路由整页样张**（含 `/screen` 暗色大屏），使用真实数据口径（8,000 样本 / 87.65% 正类 / 五渠道 / E0–E8 矩阵）
+- **原因：** 旧视觉为 Element Plus 默认调色板（观感平板），用户要求参考新 Design Tokens 文件重构设计文档并重建「足够细节」的组件参考库
+- **影响：** DESIGN.md 成为新令牌体系的前端权威；**前端代码尚未迁移**（仍持旧色板），按 §21 映射表作为独立后续提交执行，别名过渡保证不回退；CLAUDE.md 中 `pen/ui.pen`「非整页」表述随之过时，本次一并更正
+- **破坏性：** 无（纯文档 + 设计资源；运行时行为不变）
+- **验证：** DESIGN.md 令牌表与 `docs/plans/Design Tokens.md` §10 CSS 逐值核对；pen 逐屏截图自查（见后续条目补录）
+
 ## 2026-07-31 — Stage 5：Pi 真实编排桥接（VibeStart 范式：同进程 SDK + customTools 宿主代理）
 
 - **类型：** feat

@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **已落地：** M0 + 清洗/split + **E0–E8 全实验矩阵**（含 SMOTE/泄漏消融/Stacking/校准）+ CV/CI/曲线/lift/阈值扫描 + SHAP/PDP/反事实 + 多算法分群/PCA/稳定性 + 规则 + **预算模拟器** + 全量 API + **前端十路由**（+`/screen` 全屏大屏）+ **Pi 真实编排**（v0.83.0 SDK 桥接：`createAgentSession` + customTools 宿主代理，默认 runtime=pi、失败降级 local）。
 **2026-07-31 重构：** `@tool` 装饰器一处注册、L1 描述性端点（dashboard/cross-matrix）、`render_chart` 图表工具（会话内联出图）、BaseChart 封装与色板单一真相、侧栏四层叙事分组、反事实/E4·E6 叙事降级（E5/E7/E8 主线保留）。  
 **端口：** API **9800** · 前端 **5600**。  
-**验证：** `pytest` 114 passed。  
+**验证：** `pytest` 115 passed，1 skipped。  
 **P2 默认不做。**
 
 权威约束不在本文件重复展开：
@@ -18,9 +18,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|------|
 | **`AGENTS.md`** | 开发/代理行为、架构、数据/ML、API、Agent/Pi、配置、安全、测试（**先读**） |
 | **`DESIGN.md`** | 仅前端：路由、布局、token、组件、图表、接口消费 |
+| **`docs/plans/Design Tokens.md`** | 设计令牌源（DESIGN.md §6 为其前端落地权威解释） |
 | **`docs/plans/`** | 范围、P0/P1/P2、24 周里程碑 |
 | **`CHANGE.md`** | 有意义改动人工记录（最新在上） |
-| **`pen/ui.pen`** | 组件参考库（设计资源，非整页） |
+| **`pen/ui.pen`** | 设计令牌样张 + 组件库 + 十路由整页样张（Pencil 打开，禁 Read/Grep 直读） |
 
 冲突优先级：硬禁止以 `AGENTS.md` 为准；UI 以 `DESIGN.md` 为准；范围以计划书为准。
 
@@ -64,10 +65,13 @@ python scripts/run_all.py --with-p1 --full
 # 项目内 Pi SDK 安装（@earendil-works/pi-coding-agent + typebox；禁止全局 pi）
 python scripts/setup_pi_cli.py
 # Pi 编排可选 env：DEEPSEEK_API_KEY（LLM 凭证）、PI_BRIDGE_MODEL（默认 deepseek/deepseek-chat）
+# 默认 runtime 为 pi（来源 config/agent.yaml）；.env.example 中的 DIGITAL_AGENT_RUNTIME=local 仅作覆盖示例
 
 # 测试
 pytest
 pytest tests/test_api_core.py
+pytest tests/test_api_core.py::test_health -v
+pytest -k "predict or explain" -v
 pytest tests/test_agent_tools.py
 pytest tests/test_agent_config.py
 pytest tests/test_api_dashboard.py
@@ -161,7 +165,7 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
 - 路由：`/screen`（大屏，`meta.fullscreen` 绕过布局）`/` `/models` `/customers` `/segments` `/rules` `/simulate` `/agent` `/pi` `/about` 十路由均已挂真数据页；侧栏五组四层叙事（总览大屏 → 描述性分析 → 预测建模 → 深度挖掘 → AI 与系统）。
 - 数字一律来自后端；禁止前端假造 AUC。`baseURL` 用 `VITE_API_BASE_URL`。
 - `/agent` 页对 `render_chart` 工具结果经 `ChartCard` 内联渲染 chart-spec。
-- 组件视觉参考：`pen/ui.pen`（KpiCard、ShapBarChart、ToolTracePanel 等）。
+- 视觉真相：`pen/ui.pen`（令牌样张 + 组件库 + 十路由整页样张，与 DESIGN.md §6 令牌逐值一致）；视觉改动先改 .pen 再改代码。
 
 ## 改动纪律
 
