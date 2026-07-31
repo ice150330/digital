@@ -1,30 +1,68 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import {
+  ChatDotRound,
+  Coin,
+  Collection,
+  Connection,
+  DataBoard,
+  Expand,
+  Fold,
+  Histogram,
+  InfoFilled,
+  Odometer,
+  Operation,
+  User,
+} from '@element-plus/icons-vue'
 import { fetchHealth, type HealthData } from '../api/health'
 
 const route = useRoute()
 const health = ref<HealthData | null>(null)
 const healthError = ref<string | null>(null)
 const loading = ref(true)
+const collapsed = ref(false)
 
-const nav = [
-  { to: '/', label: '总览' },
-  { to: '/models', label: '模型实验室' },
-  { to: '/customers', label: '客户洞察' },
-  { to: '/segments', label: '分群画像' },
-  { to: '/rules', label: '关联规则' },
-  { to: '/simulate', label: '预算模拟' },
-  { to: '/agent', label: 'AI 分析台' },
-  { to: '/pi', label: 'Pi 编排中枢' },
-  { to: '/about', label: '关于与复现' },
+// Stage 6：侧栏四层叙事分组 —— 数据分析 → 数据挖掘 由浅入深
+const navSections = [
+  {
+    title: '总览大屏',
+    items: [{ to: '/screen', label: '总览大屏', icon: DataBoard }],
+  },
+  {
+    title: '描述性分析',
+    items: [{ to: '/', label: '数据总览', icon: Odometer }],
+  },
+  {
+    title: '预测建模',
+    items: [
+      { to: '/models', label: '模型实验室', icon: Histogram },
+      { to: '/customers', label: '客户洞察', icon: User },
+    ],
+  },
+  {
+    title: '深度挖掘',
+    items: [
+      { to: '/segments', label: '分群画像', icon: Collection },
+      { to: '/rules', label: '关联规则', icon: Connection },
+      { to: '/simulate', label: '预算模拟', icon: Coin },
+    ],
+  },
+  {
+    title: 'AI 与系统',
+    items: [
+      { to: '/agent', label: 'AI 分析台', icon: ChatDotRound },
+      { to: '/pi', label: 'Pi 编排中枢', icon: Operation },
+      { to: '/about', label: '关于与复现', icon: InfoFilled },
+    ],
+  },
 ]
 
 const statusColor = computed(() => {
-  if (healthError.value) return '#F56C6C'
-  if (health.value?.status === 'ok') return '#67C23A'
-  if (health.value?.status === 'degraded') return '#E6A23C'
-  return '#909399'
+  if (healthError.value) return 'var(--color-danger)'
+  if (health.value?.status === 'ok') return 'var(--color-success)'
+  if (health.value?.status === 'degraded') return 'var(--color-warning)'
+  return 'var(--color-info)'
 })
 
 const statusText = computed(() => {
@@ -77,17 +115,29 @@ defineExpose({ refreshHealth, health })
       </div>
     </header>
     <div class="body">
-      <aside class="sider">
-        <div class="nav-title">导航</div>
-        <router-link
-          v-for="item in nav"
-          :key="item.to"
-          class="nav-item"
-          :class="{ active: isActive(item.to) }"
-          :to="item.to"
+      <aside class="sider" :class="{ collapsed }">
+        <button
+          class="collapse-btn"
+          :title="collapsed ? '展开侧栏' : '收起侧栏'"
+          @click="collapsed = !collapsed"
         >
-          {{ item.label }}
-        </router-link>
+          <el-icon><Expand v-if="collapsed" /><Fold v-else /></el-icon>
+        </button>
+        <nav v-for="section in navSections" :key="section.title" class="nav-section">
+          <div v-if="!collapsed" class="nav-title">{{ section.title }}</div>
+          <div v-else class="nav-divider" />
+          <router-link
+            v-for="item in section.items"
+            :key="item.to"
+            class="nav-item"
+            :class="{ active: isActive(item.to) }"
+            :to="item.to"
+            :title="item.label"
+          >
+            <el-icon class="nav-icon"><component :is="item.icon" /></el-icon>
+            <span v-if="!collapsed" class="nav-label">{{ item.label }}</span>
+          </router-link>
+        </nav>
       </aside>
       <main class="main">
         <slot />
@@ -126,7 +176,7 @@ defineExpose({ refreshHealth, health })
   color: var(--color-text-secondary);
 }
 .run-chip {
-  background: #ecf5ff;
+  background: var(--color-primary-soft);
   color: var(--color-primary);
   padding: 2px 8px;
   border-radius: var(--radius-pill);
@@ -152,32 +202,79 @@ defineExpose({ refreshHealth, health })
   width: var(--sider-width);
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
-  padding: 12px 8px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
+  transition: width 0.18s ease;
+  overflow: hidden;
+}
+.sider.collapsed {
+  width: 64px;
+}
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  margin-bottom: 6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.collapse-btn:hover {
+  background: var(--color-hover);
+  color: var(--color-primary);
+}
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .nav-title {
   font-size: 11px;
   font-weight: 600;
   color: var(--color-text-secondary);
-  padding: 4px 12px 8px;
+  padding: 10px 12px 4px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.nav-divider {
+  height: 1px;
+  margin: 8px 10px 4px;
+  background: var(--color-border);
 }
 .nav-item {
-  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
   border-radius: 6px;
   font-size: 13px;
   color: var(--color-text);
   text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-icon {
+  font-size: 16px;
+  flex-shrink: 0;
 }
 .nav-item.active {
-  background: #ecf5ff;
+  background: var(--color-primary-soft);
   color: var(--color-primary);
   font-weight: 600;
 }
 .nav-item:hover:not(.active) {
-  background: #f5f7fa;
+  background: var(--color-hover);
+}
+.sider.collapsed .nav-item {
+  justify-content: center;
+  padding: 9px 0;
 }
 .main {
   flex: 1;
@@ -186,7 +283,22 @@ defineExpose({ refreshHealth, health })
 }
 @media (max-width: 992px) {
   .sider {
-    width: 160px;
+    width: 64px;
+  }
+  .sider .nav-label,
+  .sider .nav-title {
+    display: none;
+  }
+  .sider .nav-item {
+    justify-content: center;
+    padding: 9px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sider,
+  .collapse-btn,
+  .nav-item {
+    transition: none;
   }
 }
 </style>

@@ -76,6 +76,16 @@ function isAblation(row: MetricRow | Record<string, unknown>) {
   return Boolean(row.ablation) || Boolean(row.includes_conversion_rate)
 }
 
+// Stage 6 叙事降级：E4 SMOTE / E6 flag 消融行展示降权（代码与端点保留）；
+// E5 泄漏消融、E7 Stacking、E8 校准保持主线呈现
+function rowClass({ row }: { row: MetricRow }) {
+  const exp = String(row.exp_id ?? '').toUpperCase()
+  return exp === 'E4' || exp === 'E6' ? 'muted-row' : ''
+}
+function isDemoted(row: MetricRow | Record<string, unknown>) {
+  return String(row.exp_id ?? '').toUpperCase() === 'E4'
+}
+
 async function loadRunDetail(runId: string) {
   curves.value = null
   detail.value = null
@@ -154,15 +164,18 @@ onMounted(load)
     <ElCard v-else-if="items.length" shadow="never" class="section-card">
       <template #header>
         <span>实验矩阵对比</span>
-        <span class="muted mono" style="margin-left: 12px">primary = {{ metrics?.primary_metric }}</span>
+        <span class="muted mono ml-sm">primary = {{ metrics?.primary_metric }}</span>
       </template>
-      <ElTable :data="items" size="small" stripe>
+      <ElTable :data="items" size="small" stripe :row-class-name="rowClass">
         <ElTableColumn prop="run_id" label="run_id" min-width="170">
           <template #default="{ row }">
             <span class="mono">{{ row.run_id }}</span>
-            <ElTag v-if="isDummy(row)" size="small" type="info" style="margin-left: 6px">Dummy</ElTag>
-            <ElTag v-else-if="isAblation(row)" size="small" type="warning" style="margin-left: 6px">
+            <ElTag v-if="isDummy(row)" size="small" type="info">Dummy</ElTag>
+            <ElTag v-else-if="isAblation(row)" size="small" type="warning">
               消融·不作默认
+            </ElTag>
+            <ElTag v-else-if="isDemoted(row)" size="small" type="info">
+              展示降权
             </ElTag>
           </template>
         </ElTableColumn>
@@ -219,7 +232,7 @@ onMounted(load)
           </template>
         </ElTableColumn>
       </ElTable>
-      <p class="muted" style="margin-top: 12px">{{ metrics?.accuracy_note }}</p>
+      <p class="muted mt-md">{{ metrics?.accuracy_note }}</p>
     </ElCard>
 
     <EmptyState
@@ -234,7 +247,7 @@ onMounted(load)
         <ElSelect
           v-model="selectedRun"
           size="small"
-          style="width: 260px; margin-left: 12px"
+          class="input-wide ml-sm"
           @change="loadRunDetail"
         >
           <ElOption
@@ -264,7 +277,7 @@ onMounted(load)
     <ElCard v-if="scan" shadow="never" class="section-card">
       <template #header>
         <span>阈值-成本分析</span>
-        <span class="muted" style="margin-left: 12px">{{ scan.cost_note }}</span>
+        <span class="muted ml-sm">{{ scan.cost_note }}</span>
       </template>
       <ThresholdScanChart
         :rows="scan.rows"
@@ -281,7 +294,7 @@ onMounted(load)
           :min="0.05"
           :max="0.95"
           :step="0.01"
-          style="flex: 1"
+          class="flex-1"
         />
         <span v-if="sliderRow" class="tabular-nums muted">
           P={{ sliderRow.precision.toFixed(4) }} R={{ sliderRow.recall.toFixed(4) }}
@@ -293,10 +306,10 @@ onMounted(load)
     <ElCard v-if="calibration" shadow="never" class="section-card">
       <template #header>
         <span>概率校准（{{ calibration.run_id }}）</span>
-        <span class="muted" style="margin-left: 12px">{{ calibration.note }}</span>
+        <span class="muted ml-sm">{{ calibration.note }}</span>
       </template>
       <CalibrationChart :before="calibration.before" :after="calibration.after" :method="calibration.method" />
-      <p class="muted tabular-nums" style="margin-top: 8px">
+      <p class="muted tabular-nums mt-sm">
         brier {{ calibration.before.brier.toFixed(4) }} → {{ calibration.after.brier.toFixed(4) }}；
         log_loss {{ calibration.before.log_loss.toFixed(4) }} → {{ calibration.after.log_loss.toFixed(4) }}
       </p>
@@ -305,7 +318,7 @@ onMounted(load)
     <ElCard v-if="shapItems.length" shadow="never" class="section-card">
       <template #header>
         全局特征贡献
-        <span class="muted mono" style="margin-left: 12px">
+        <span class="muted mono ml-sm">
           {{ globalExplain?.run_id }} · {{ globalExplain?.method }}
         </span>
       </template>
@@ -338,5 +351,9 @@ onMounted(load)
   align-items: center;
   gap: 16px;
   margin-top: 8px;
+}
+/* Stage 6：E4/E6 展示降权行（代码与端点保留，仅视觉弱化） */
+:deep(.el-table .muted-row) {
+  opacity: 0.65;
 }
 </style>

@@ -3,6 +3,8 @@ import { onMounted, reactive, ref } from 'vue'
 import {
   ElButton,
   ElCard,
+  ElCollapse,
+  ElCollapseItem,
   ElForm,
   ElFormItem,
   ElInput,
@@ -42,6 +44,7 @@ const batchLoading = ref(false)
 // 反事实（模型行为口径）：沿用最近一次预测的输入
 const lastInput = ref<{ customer_id?: number; features?: Record<string, unknown> } | null>(null)
 const cfFeature = ref<string>('')
+const cfOpen = ref<string[]>([]) // Stage 6：反事实默认收起
 const cfTarget = ref(0.9)
 const cfLoading = ref(false)
 const cfError = ref<string | null>(null)
@@ -160,7 +163,7 @@ onMounted(loadMeta)
           <ElInputNumber v-model="customerId" :min="1" :controls="false" />
           <ElButton type="primary" :loading="loading" @click="runPredict(true)">按 ID 预测</ElButton>
         </ElSpace>
-        <p class="muted" style="margin: 12px 0">或填写特征（样例默认已填充）：</p>
+        <p class="muted m-block-md">或填写特征（样例默认已填充）：</p>
         <ElForm v-if="meta" label-position="top" class="feat-form">
           <ElFormItem
             v-for="col in meta.feature_columns_raw"
@@ -172,7 +175,7 @@ onMounted(loadMeta)
               v-model="form[col]"
               filterable
               allow-create
-              style="width: 100%"
+              class="w-full"
             >
               <ElOption
                 v-if="form[col] != null"
@@ -184,13 +187,13 @@ onMounted(loadMeta)
               v-else-if="meta.numeric_features.includes(col) || meta.flag_features.includes(col)"
               v-model="form[col] as number"
               :controls="false"
-              style="width: 100%"
+              class="w-full"
             />
             <ElInput v-else v-model="form[col] as string" />
           </ElFormItem>
         </ElForm>
         <EmptyState v-else-if="!metaLoading" title="缺少特征 schema" description="请先训练生成 feature_schema.json" />
-        <ElSpace style="margin-top: 8px">
+        <ElSpace class="mt-sm">
           <ElButton v-if="meta" @click="applyDefaults(meta)">填充样例</ElButton>
           <ElButton type="primary" :loading="loading" :disabled="!meta" @click="runPredict(false)">
             按特征预测
@@ -226,7 +229,7 @@ onMounted(loadMeta)
         <ElCard v-if="expl?.top_features?.length" shadow="never" class="section-card">
           <template #header>
             局部解释
-            <span class="muted mono" style="margin-left: 8px">{{ expl.method }}</span>
+            <span class="muted mono ml-sm">{{ expl.method }}</span>
           </template>
           <ShapBarChart
             :items="
@@ -238,12 +241,13 @@ onMounted(loadMeta)
           />
         </ElCard>
 
-        <ElCard v-if="pred" shadow="never" class="section-card">
-          <template #header>
-            反事实分析（模型行为口径）
-            <span class="muted" style="margin-left: 8px">非因果，不构成投放建议</span>
-          </template>
-          <ElSpace wrap style="width: 100%">
+        <!-- Stage 6 叙事降级：反事实收进折叠区默认收起（端点与代码保留，演示时手动展开） -->
+        <ElCollapse v-if="pred" v-model="cfOpen" class="section-card cf-collapse">
+          <ElCollapseItem
+            name="cf"
+            title="反事实分析 · 模型行为分析（敏感性），非因果，不构成投放建议"
+          >
+          <ElSpace wrap class="w-full">
             <span class="muted">扰动特征</span>
             <ElSelect v-model="cfFeature" style="width: 200px">
               <ElOption
@@ -296,7 +300,8 @@ onMounted(loadMeta)
               <p class="muted">{{ cf.counterfactual.disclaimer }}</p>
             </div>
           </template>
-        </ElCard>
+          </ElCollapseItem>
+        </ElCollapse>
 
         <EmptyState
           v-if="!pred && !loading"
@@ -306,9 +311,9 @@ onMounted(loadMeta)
 
         <ElCard shadow="never" class="section-card">
           <template #header>批量预测（上限 200）</template>
-          <p class="muted" style="margin-top: 0">逗号分隔 CustomerID；结果仅供名单筛选参考，非因果。</p>
-          <ElSpace wrap style="width: 100%">
-            <ElInput v-model="batchIds" style="min-width: 240px" placeholder="8000,8001,8002" />
+          <p class="muted mt-0">逗号分隔 CustomerID；结果仅供名单筛选参考，非因果。</p>
+          <ElSpace wrap class="w-full">
+            <ElInput v-model="batchIds" class="input-wide" placeholder="8000,8001,8002" />
             <ElButton type="primary" :loading="batchLoading" @click="runBatch">批量预测</ElButton>
           </ElSpace>
           <div v-if="batchResult" class="batch-box">
