@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -159,14 +160,23 @@ def pick_default_run_id() -> str:
 
 
 def load_runtime(run_id: str | None = None) -> dict[str, Any]:
-    """加载 model + transformer + meta。
+    """加载 model + transformer + meta（Stage 1：按 run_id 进程内缓存）。
 
     transformer 解析顺序：run 目录 per-run transformer（E5/E6 等特征变体）
     → 全局 processed/feature_transformer.joblib → meta 内快照路径。
     特征列/展开名以 meta.feature_schema 快照为准（变体 run 列集合不同）。
+
+    返回 dict 为共享只读引用（调用方不得 mutate）；重训后同进程须
+    clear_runtime_cache()。predict_batch 等热路径不再重复 joblib.load。
     """
     rid = run_id or pick_default_run_id()
-    run_dir = models_dir() / rid
+    # 缓存键含产物根路径：测试会 monkeypatch 目录函数，路径入键防跨根污染
+    return _load_runtime_cached(str(models_dir()), rid)
+
+
+@lru_cache(maxsize=8)
+def _load_runtime_cached(models_root: str, rid: str) -> dict[str, Any]:
+    run_dir = Path(models_root) / rid
     meta_path = run_dir / "meta.json"
     model_path = run_dir / "model.joblib"
     if not meta_path.is_file() or not model_path.is_file():
@@ -200,6 +210,12 @@ def load_runtime(run_id: str | None = None) -> dict[str, Any]:
     }
 
 
+def clear_runtime_cache() -> None:
+    """清空模型运行时缓存（训练脚本结尾 / 测试重训场景调用）。"""
+    _load_runtime_cached.cache_clear()
+    _clean_df_cached.cache_clear()
+
+
 def _row_dataframe_from_features(features: dict[str, Any]) -> pd.DataFrame:
     """从 API 特征 dict 构造单行 DataFrame，并补 flag。"""
     cfg = load_feature_config()
@@ -221,11 +237,20 @@ def _row_dataframe_from_features(features: dict[str, Any]) -> pd.DataFrame:
     return df
 
 
+@lru_cache(maxsize=4)
+def _clean_df_cached(clean_path: str) -> pd.DataFrame:
+    """clean.csv 只读全表缓存（8k 行，供 lookup_customer_row 复用）。
+
+    键为解析后的文件路径：测试会 monkeypatch processed_dir，路径入键防跨根污染。
+    """
+    return pd.read_csv(Path(clean_path))
+
+
 def lookup_customer_row(customer_id: int) -> pd.DataFrame:
     clean = processed_dir() / "clean.csv"
     if not clean.is_file():
         raise ArtifactError("ARTIFACT_MISSING", "缺少 clean.csv，请先 python scripts/01_clean_data.py")
-    df = pd.read_csv(clean)
+    df = _clean_df_cached(str(clean))
     hit = df[df["CustomerID"] == customer_id]
     if hit.empty:
         raise ArtifactError("CUSTOMER_NOT_FOUND", f"未找到 CustomerID={customer_id}", {"customer_id": customer_id})

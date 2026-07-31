@@ -11,8 +11,6 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from digital_marketing.agent import audit, skills
 from digital_marketing.agent.local_runtime import run_local_chat
 from digital_marketing.core.paths import project_root, resolve_under_root
@@ -26,10 +24,10 @@ class PiPathError(Exception):
 
 
 def _agent_cfg() -> dict[str, Any]:
-    path = project_root() / "config" / "agent.yaml"
-    if not path.is_file():
-        return {}
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    """读取 agent 配置（dict 形态）。Stage 1：统一经 agent/config.py 缓存加载。"""
+    from digital_marketing.agent.config import get_agent_cfg_dict
+
+    return get_agent_cfg_dict()
 
 
 def pi_executable_path() -> Path:
@@ -128,8 +126,12 @@ def pi_status() -> dict[str, Any]:
     }
 
 
-def try_pi_or_fallback(message: str, *, session_id: str, request_id: str) -> dict[str, Any]:
-    """尝试 Pi；stub/未安装/调用失败则降级 local 并显式标注。"""
+def run_pi_chat(message: str, *, session_id: str, request_id: str) -> dict[str, Any]:
+    """Pi 编排入口（service.chat 分发至此）。
+
+    stub/未安装/调用失败则降级 local 并显式标注（pi_fallback + open_questions）。
+    Stage 5 将把「真实分支」从 --help 探测升级为真实编排协议（A/B/C 或分支 R）。
+    """
     status = pi_status()
     installed_real = status.get("installed") and not status.get("is_stub")
     if not installed_real:
@@ -171,3 +173,7 @@ def try_pi_or_fallback(message: str, *, session_id: str, request_id: str) -> dic
     )
     result["pi_status"] = status
     return result
+
+
+# 兼容别名（旧调用方与测试：from ...pi_runtime import try_pi_or_fallback）
+try_pi_or_fallback = run_pi_chat

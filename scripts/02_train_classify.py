@@ -110,6 +110,11 @@ def main() -> int:
 
     board = write_leaderboard(rows, metrics_dir)
     print(f"leaderboard -> {board}")
+
+    # Stage 1：训练完成后清空模型运行时缓存（防同进程续跑读旧模型）
+    from digital_marketing.services.artifacts import clear_runtime_cache
+
+    clear_runtime_cache()
     return 0
 
 

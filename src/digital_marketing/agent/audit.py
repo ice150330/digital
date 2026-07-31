@@ -12,17 +12,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-from digital_marketing.core.paths import ensure_dir, project_root, resolve_under_root
+from digital_marketing.core.paths import ensure_dir, resolve_under_root
 
 
 def _audit_cfg() -> dict[str, Any]:
-    path = project_root() / "config" / "agent.yaml"
-    if not path.is_file():
-        return {}
-    cfg = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return cfg.get("audit") or {}
+    """Stage 1：统一经 agent/config.py 缓存加载。"""
+    from digital_marketing.agent.config import get_agent_config
+
+    return get_agent_config().audit.model_dump()
 
 
 def log_dir() -> Path:

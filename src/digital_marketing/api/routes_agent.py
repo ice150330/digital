@@ -9,7 +9,6 @@ from digital_marketing.agent import service as agent_service
 from digital_marketing.agent.pi_runtime import pi_status
 from digital_marketing.agent.report import generate_analysis_report
 from digital_marketing.api.errors import envelope_error
-from digital_marketing.core.paths import project_root
 from digital_marketing.schemas.agent import (
     AuditRecentData,
     ChatData,
@@ -74,14 +73,10 @@ def agent_runtime(body: RuntimeRequest, request: Request):
             message="runtime 仅支持 local | template | pi",
             status_code=422,
         )
-    import yaml
+    # Stage 1：写回 + 缓存失效统一经 agent.config.set_runtime_persisted
+    from digital_marketing.agent.config import set_runtime_persisted
 
-    path = project_root() / "config" / "agent.yaml"
-    cfg = {}
-    if path.is_file():
-        cfg = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    cfg["runtime"] = rt
-    path.write_text(yaml.safe_dump(cfg, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    set_runtime_persisted(rt)
     data = RuntimeData(runtime=rt, message=f"已切换 runtime={rt}")
     return Envelope[RuntimeData](ok=True, data=data, error=None, request_id=request_id)
 
