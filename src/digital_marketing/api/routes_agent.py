@@ -12,6 +12,9 @@ from fastapi.responses import StreamingResponse
 
 from digital_marketing.agent import audit as agent_audit
 from digital_marketing.agent import service as agent_service
+from digital_marketing.agent.config import get_pi_agent_settings, update_pi_agent_settings
+from digital_marketing.agent.llm_client import LlmUnavailableError
+from digital_marketing.agent.model_catalog import UpstreamModelError, fetch_upstream_models
 from digital_marketing.agent.pi_runtime import pi_status
 from digital_marketing.agent.report import generate_analysis_report
 from digital_marketing.api.errors import envelope_error
@@ -20,6 +23,9 @@ from digital_marketing.schemas.agent import (
     AuditRecentData,
     ChatData,
     ChatRequest,
+    PiAgentConfigData,
+    PiAgentConfigUpdate,
+    PiModelListData,
     PiStatusData,
     ReportData,
     ReportRequest,
@@ -50,6 +56,14 @@ def agent_chat(body: ChatRequest, request: Request):
         return Envelope[ChatData](ok=True, data=data, error=None, request_id=request_id)
     except ValueError as e:
         return envelope_error(request, code="VALIDATION_ERROR", message=str(e), status_code=422)
+    except LlmUnavailableError as e:
+        return envelope_error(
+            request,
+            code=e.code,
+            message=e.message,
+            detail=e.detail,
+            status_code=502,
+        )
     except Exception as e:  # noqa: BLE001
         return envelope_error(
             request,
@@ -94,6 +108,8 @@ def agent_chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
                 )
         except ValueError as exc:
             emit("error", {"code": "VALIDATION_ERROR", "message": str(exc)})
+        except LlmUnavailableError as exc:
+            emit("error", {"code": exc.code, "message": exc.message, "detail": exc.detail})
         except Exception as exc:  # noqa: BLE001
             emit("error", {"code": "AGENT_TOOL_FAILED", "message": f"Agent 执行失败: {exc}"})
         finally:
@@ -184,6 +200,50 @@ def agent_runtime(body: RuntimeRequest, request: Request):
     set_runtime_persisted(rt)
     data = RuntimeData(runtime=rt, message=f"已切换 runtime={rt}")
     return Envelope[RuntimeData](ok=True, data=data, error=None, request_id=request_id)
+
+
+@router.get("/agent/pi/config", response_model=Envelope[PiAgentConfigData])
+def agent_pi_config(request: Request):
+    """PiAgent 配置卡片：返回可保存 settings + 当前 status（不回显密钥明文）。"""
+    request_id = getattr(request.state, "request_id", "unknown")
+    data = PiAgentConfigData.model_validate(
+        {
+            "settings": get_pi_agent_settings(),
+            "status": pi_status(),
+        }
+    )
+    return Envelope[PiAgentConfigData](ok=True, data=data, error=None, request_id=request_id)
+
+
+@router.put("/agent/pi/config", response_model=Envelope[PiAgentConfigData])
+def agent_pi_config_update(body: PiAgentConfigUpdate, request: Request):
+    """保存 PiAgent 非密钥配置；API Key 仅写入本地 .env 的 DEEPSEEK_API_KEY。"""
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        settings = update_pi_agent_settings(body.model_dump(exclude_unset=True))
+        data = PiAgentConfigData.model_validate({"settings": settings, "status": pi_status()})
+        return Envelope[PiAgentConfigData](ok=True, data=data, error=None, request_id=request_id)
+    except ValueError as exc:
+        return envelope_error(request, code="VALIDATION_ERROR", message=str(exc), status_code=422)
+
+
+@router.get("/agent/pi/models", response_model=Envelope[PiModelListData])
+def agent_pi_models(request: Request):
+    """从已保存的上游 Base URL 读取可选模型列表；API Key 不返回给前端。"""
+    request_id = getattr(request.state, "request_id", "unknown")
+    try:
+        raw = fetch_upstream_models()
+        data = PiModelListData.model_validate(raw)
+        return Envelope[PiModelListData](ok=True, data=data, error=None, request_id=request_id)
+    except UpstreamModelError as exc:
+        status = 422 if exc.code == "VALIDATION_ERROR" else 502
+        return envelope_error(
+            request,
+            code=exc.code,
+            message=exc.message,
+            detail=exc.detail,
+            status_code=status,
+        )
 
 
 @router.get("/agent/pi/status", response_model=Envelope[PiStatusData])

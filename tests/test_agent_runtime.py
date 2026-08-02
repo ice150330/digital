@@ -21,6 +21,10 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     root = project_root()
     monkeypatch.setenv("DIGITAL_ROOT", str(root))
     monkeypatch.setenv("DIGITAL_DATABASE_URL", f"sqlite:///{(tmp_path / 'a.db').as_posix()}")
+    monkeypatch.setattr(
+        "digital_marketing.agent.llm_client.chat_completion",
+        lambda messages, **kwargs: {"reply": "真实 LLM mock：runtime 测试回复。", "model": "deepseek-chat"},
+    )
     clear_settings_cache()
     reset_engine()
     app = create_app()
@@ -69,10 +73,14 @@ def test_skills_frontmatter_parsed():
     assert all(s["description"] for s in skills)
 
 
-def test_stub_chat_falls_back_with_annotation():
+def test_stub_chat_falls_back_with_annotation(monkeypatch):
     st = pi_status()
     if not (st["installed"] and st["is_stub"]):
         pytest.skip("仅 stub 环境下验证降级标注")
+    monkeypatch.setattr(
+        "digital_marketing.agent.llm_client.chat_completion",
+        lambda messages, **kwargs: {"reply": "真实 LLM mock：stub 降级回复。", "model": "deepseek-chat"},
+    )
     result = try_pi_or_fallback("数据规模多少", session_id="t-w9d", request_id="req-w9d")
     assert result.get("pi_fallback") is True
     assert result["runtime"] in {"local", "template"}
@@ -100,7 +108,7 @@ def test_generate_report_tool_writes_markdown():
 
 def test_audit_recent_api(client: TestClient):
     # 先发一轮 chat 产生审计
-    client.post("/api/v1/agent/chat", json={"message": "数据规模"}).json()
+    client.post("/api/v1/agent/chat", json={"message": "数据规模", "runtime": "local"}).json()
     r = client.get("/api/v1/agent/audit/recent", params={"limit": 5})
     assert r.status_code == 200
     d = r.json()["data"]
@@ -108,6 +116,25 @@ def test_audit_recent_api(client: TestClient):
     row = d["items"][0]
     for k in ("ts", "request_id", "runtime", "user_message", "tool_calls"):
         assert k in row
+
+
+def test_pi_config_api_returns_settings_and_status(client: TestClient):
+    r = client.get("/api/v1/agent/pi/config")
+    assert r.status_code == 200
+    d = r.json()["data"]
+    assert d["settings"]["runtime"] == "pi"
+    assert d["settings"]["pi"]["bridge_model"] == "deepseek/deepseek-chat"
+    assert "api_key_configured" in d["settings"]["llm"]
+    assert "api_key" not in d["settings"]["llm"]
+    assert d["status"]["default_runtime"] == "pi"
+
+
+def test_pi_config_api_rejects_invalid_pi_path(client: TestClient):
+    r = client.put("/api/v1/agent/pi/config", json={"pi": {"executable": "pi"}})
+    assert r.status_code == 422
+    body = r.json()
+    assert body["error"]["code"] == "VALIDATION_ERROR"
+    assert "tools/pi-cli" in body["error"]["message"]
 
 
 def test_report_api(client: TestClient):

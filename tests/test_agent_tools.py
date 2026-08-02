@@ -47,6 +47,10 @@ def agent_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     root = project_root()
     monkeypatch.setenv("DIGITAL_ROOT", str(root))
     monkeypatch.setenv("DIGITAL_DATABASE_URL", f"sqlite:///{(tmp_path / 'a.db').as_posix()}")
+    monkeypatch.setattr(
+        "digital_marketing.agent.llm_client.chat_completion",
+        lambda messages, **kwargs: {"reply": "真实 LLM mock：已基于工具事实生成回复。", "model": "deepseek-chat"},
+    )
     clear_settings_cache()
     reset_engine()
     app = create_app()
@@ -59,7 +63,7 @@ def agent_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 def test_agent_chat_contract(agent_client: TestClient):
     r = agent_client.post(
         "/api/v1/agent/chat",
-        json={"message": "请给出数据规模和模型 PR-AUC"},
+        json={"message": "请给出数据规模和模型 PR-AUC", "runtime": "local"},
     )
     assert r.status_code == 200
     body = r.json()
@@ -70,6 +74,8 @@ def test_agent_chat_contract(agent_client: TestClient):
     assert data["tool_trace"]
     assert data["session_id"]
     assert data["runtime"] in {"local", "template", "pi"}
+    assert data["reply"].startswith("真实 LLM mock")
+    assert data["llm_model"] == "deepseek-chat"
 
 
 def _parse_sse(text: str) -> list[tuple[str, dict]]:
@@ -92,12 +98,13 @@ def _parse_sse(text: str) -> list[tuple[str, dict]]:
 def test_agent_chat_stream_sends_tool_text_and_done(agent_client: TestClient):
     response = agent_client.post(
         "/api/v1/agent/chat/stream",
-        json={"message": "请给出数据规模", "runtime": "template"},
+        json={"message": "请给出数据规模", "runtime": "local"},
     )
     assert response.status_code == 200
     assert response.headers["content-type"].startswith("text/event-stream")
     events = _parse_sse(response.text)
     names = [name for name, _ in events]
+    assert "status" in names
     assert "tool_start" in names
     assert "tool_end" in names
     assert "facts" in names
@@ -105,13 +112,14 @@ def test_agent_chat_stream_sends_tool_text_and_done(agent_client: TestClient):
     assert names[-1] == "done"
     done = events[-1][1]
     assert done["session_id"]
-    assert done["runtime"] in {"local", "template"}
+    assert done["runtime"] == "local"
+    assert done["llm_model"] == "deepseek-chat"
 
 
 def test_agent_chat_stream_empty_message_returns_error_event(agent_client: TestClient):
     response = agent_client.post(
         "/api/v1/agent/chat/stream",
-        json={"message": "   ", "runtime": "template"},
+        json={"message": "   ", "runtime": "local"},
     )
     assert response.status_code == 200
     events = _parse_sse(response.text)
@@ -127,7 +135,7 @@ def test_agent_session_list_and_soft_delete(
     monkeypatch.setattr(agent_audit, "session_dir", lambda: tmp_path)
     response = agent_client.post(
         "/api/v1/agent/chat/stream",
-        json={"message": "请给出数据规模", "runtime": "template"},
+        json={"message": "请给出数据规模", "runtime": "local"},
     )
     events = _parse_sse(response.text)
     session_id = next(data["session_id"] for event, data in events if event == "done")

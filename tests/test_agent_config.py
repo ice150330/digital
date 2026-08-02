@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 
 import digital_marketing.agent.config as agent_config
@@ -9,7 +11,9 @@ from digital_marketing.agent.config import (
     AgentConfig,
     clear_agent_config_cache,
     get_agent_config,
+    get_pi_agent_settings,
     set_runtime_persisted,
+    update_pi_agent_settings,
 )
 from digital_marketing.agent.tools import REGISTRY, list_tools, plan_from_message, run_tool
 
@@ -28,6 +32,7 @@ def test_repo_agent_yaml_defaults():
     assert cfg.runtime == "pi"
     assert cfg.pi.executable.startswith("tools/pi-cli/")
     assert cfg.pi.timeout_sec == 180
+    assert cfg.pi.bridge_model == "deepseek/deepseek-chat"
     assert cfg.audit.log_dir == "outputs/agent_logs"
     assert len(cfg.tools_whitelist) >= 18
 
@@ -61,6 +66,82 @@ def test_set_runtime_persisted_roundtrip(tmp_path, monkeypatch):
     assert get_agent_config().runtime == "local"
     text = (tmp_path / "config" / "agent.yaml").read_text(encoding="utf-8")
     assert "runtime: local" in text
+
+
+def test_pi_agent_settings_update_masks_secret_and_writes_yaml(tmp_path, monkeypatch):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "agent.yaml").write_text(
+        "runtime: pi\nllm:\n  base_url: ''\n  timeout_sec: 60\npi:\n  executable: tools/pi-cli/node_modules/.bin/pi\n  timeout_sec: 180\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(agent_config, "project_root", lambda: tmp_path)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    clear_agent_config_cache()
+
+    settings = update_pi_agent_settings(
+        {
+            "runtime": "local",
+            "llm": {"base_url": "https://api.deepseek.com/", "timeout_sec": 45},
+            "pi": {
+                "executable": "tools/pi-cli/node_modules/.bin/pi",
+                "skills_dir": "src/digital_marketing/agent/skills",
+                "session_dir": "outputs/agent_sessions",
+                "timeout_sec": 150,
+                "bridge_model": "deepseek/deepseek-chat",
+            },
+            "api_key": "sk-test-secret-value",
+        }
+    )
+
+    text = (tmp_path / "config" / "agent.yaml").read_text(encoding="utf-8")
+    env_text = (tmp_path / ".env").read_text(encoding="utf-8")
+    assert "runtime: local" in text
+    assert "base_url: https://api.deepseek.com" in text
+    assert "bridge_model: deepseek/deepseek-chat" in text
+    assert "DEEPSEEK_API_KEY=sk-test-secret-value" in env_text
+    assert settings["llm"]["api_key_configured"] is True
+    assert settings["llm"]["api_key_preview"] == "sk-t…alue"
+    assert "sk-test-secret-value" not in str(settings)
+    assert get_pi_agent_settings()["runtime"] == "local"
+
+
+def test_pi_agent_settings_clear_secret_keeps_other_env(tmp_path, monkeypatch):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "agent.yaml").write_text("runtime: pi\n", encoding="utf-8")
+    (tmp_path / ".env").write_text("FOO=bar\nDEEPSEEK_API_KEY=sk-old-secret\n", encoding="utf-8")
+    monkeypatch.setattr(agent_config, "project_root", lambda: tmp_path)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-old-secret")
+    clear_agent_config_cache()
+
+    settings = update_pi_agent_settings({"clear_api_key": True})
+
+    env_text = (tmp_path / ".env").read_text(encoding="utf-8")
+    assert "FOO=bar" in env_text
+    assert "DEEPSEEK_API_KEY" not in env_text
+    assert settings["llm"]["api_key_configured"] is False
+    assert "DEEPSEEK_API_KEY" not in os.environ
+
+
+def test_pi_agent_settings_validation_rejects_unsafe_inputs(tmp_path, monkeypatch):
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "agent.yaml").write_text("runtime: pi\n", encoding="utf-8")
+    monkeypatch.setattr(agent_config, "project_root", lambda: tmp_path)
+    clear_agent_config_cache()
+
+    bad_payloads = [
+        {"runtime": "global"},
+        {"llm": {"base_url": "ftp://api.example.com"}},
+        {"llm": {"timeout_sec": 3}},
+        {"pi": {"timeout_sec": 500}},
+        {"pi": {"executable": "pi"}},
+        {"pi": {"executable": "scripts/pi"}},
+        {"pi": {"bridge_model": "deepseek-chat"}},
+        {"pi": {"session_dir": "../outside"}},
+        {"api_key": "sk-test\nBAD=1"},
+    ]
+    for payload in bad_payloads:
+        with pytest.raises(ValueError):
+            update_pi_agent_settings(payload)
 
 
 def test_run_tool_whitelist_enforced(tmp_path, monkeypatch):

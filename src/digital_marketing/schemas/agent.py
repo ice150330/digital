@@ -23,6 +23,7 @@ class ChatData(BaseModel):
     open_questions: list[str] = Field(default_factory=list)
     tool_trace: list[dict[str, Any]] = Field(default_factory=list)
     latency_ms: float | None = None
+    llm_model: str | None = None
     pi_status: dict[str, Any] | None = None
     pi_fallback: bool = Field(default=False, description="默认 runtime=pi 但降级 local/template 时为 True")
 
@@ -74,6 +75,69 @@ class PiStatusData(BaseModel):
     # Stage 5：桥接三要素就绪状态（脚本/node/SDK 包）
     bridge_ready: bool = False
     bridge_note: str | None = None
+
+
+class LlmPiConfigData(BaseModel):
+    base_url: str = ""
+    model: str = "deepseek-chat"
+    timeout_sec: int = 60
+    api_key_configured: bool = False
+    api_key_preview: str | None = None
+
+
+class PiRuntimeConfigData(BaseModel):
+    executable: str = "tools/pi-cli/node_modules/.bin/pi"
+    skills_dir: str = "src/digital_marketing/agent/skills"
+    session_dir: str = "outputs/agent_sessions"
+    timeout_sec: int = 180
+    bridge_model: str = "deepseek/deepseek-chat"
+
+
+class PiAgentSettingsData(BaseModel):
+    runtime: str
+    llm: LlmPiConfigData
+    pi: PiRuntimeConfigData
+    updated_at: str
+
+
+class PiAgentConfigData(BaseModel):
+    settings: PiAgentSettingsData
+    status: PiStatusData
+
+
+class LlmPiConfigUpdate(BaseModel):
+    base_url: str | None = None
+    timeout_sec: int | None = None
+
+
+class PiRuntimeConfigUpdate(BaseModel):
+    executable: str | None = None
+    skills_dir: str | None = None
+    session_dir: str | None = None
+    timeout_sec: int | None = None
+    bridge_model: str | None = None
+
+
+class PiAgentConfigUpdate(BaseModel):
+    runtime: str | None = None
+    llm: LlmPiConfigUpdate | None = None
+    pi: PiRuntimeConfigUpdate | None = None
+    api_key: str | None = None
+    clear_api_key: bool = False
+
+
+class PiModelItemData(BaseModel):
+    id: str
+    label: str
+    owned_by: str | None = None
+
+
+class PiModelListData(BaseModel):
+    base_url: str
+    models: list[PiModelItemData] = Field(default_factory=list)
+    n: int = 0
+    selected_model: str
+    source: dict[str, Any] = Field(default_factory=dict)
 
 
 class ReportRequest(BaseModel):

@@ -7,12 +7,11 @@ Pi 分支（pi_runtime 降级时仍会回调 run_local_chat(runtime="local"|"tem
 
 from __future__ import annotations
 
-import os
 import uuid
 from collections.abc import Callable
 from typing import Any
 
-from digital_marketing.agent import audit, grounding
+from digital_marketing.agent import audit, grounding, llm_client
 from digital_marketing.agent.tools import plan_from_message, run_tool
 
 # 历史名别名（旧调用方与测试：from ...local_runtime import plan_tools）
@@ -37,13 +36,7 @@ def resolve_runtime(requested: str | None = None) -> str:
 
     cfg = get_agent_config()
     rt = (requested or cfg.runtime or "local").lower()
-    if rt == "pi":
-        return "pi"
-    # 无 Key 时强制 template 语义（仍可走关键词工具）
-    key = os.environ.get("DIGITAL_LLM_API_KEY") or os.environ.get("OPENAI_API_KEY")
-    if not key and rt == "local":
-        return "template"
-    return rt if rt in {"local", "template", "pi"} else "template"
+    return rt if rt in {"local", "template", "pi"} else "local"
 
 
 def run_local_chat(
@@ -62,9 +55,11 @@ def run_local_chat(
         # 分发上提至 service.chat；pi_runtime 降级链只会传 local/template
         raise RuntimeError("runtime=pi 的分发应经 agent.service.chat / pi_runtime.run_pi_chat")
 
+    _emit(on_event, "status", {"phase": "planning", "message": "正在规划分析工具"})
     plans = plan_from_message(message)
     tool_trace: list[dict[str, Any]] = []
     facts: list[str] = []
+    _emit(on_event, "status", {"phase": "tooling", "message": "正在执行宿主分析工具", "n_tools": len(plans)})
     for name, kwargs in plans:
         _emit(on_event, "tool_start", {"tool": name, "args": kwargs})
         tool_started = audit.now_ms()
@@ -111,13 +106,20 @@ def run_local_chat(
     recommendations = [
         "答辩演示路径：总览 → 模型 PR-AUC/Dummy → 客户解释 → 本页展开 tool_trace。",
     ]
-    if rt == "template":
-        recommendations.append("当前为 template/关键词模式（未配置 LLM Key），工具结果仍真实可用。")
-
     open_q = []
     if not any(t.get("ok") for t in tool_trace):
         open_q.append("工具全部失败，请检查是否已运行 run_all 生成产物。")
 
+    _emit(on_event, "status", {"phase": "replying", "message": "正在调用上游模型生成回复"})
+    llm = llm_client.generate_grounded_reply(
+        user_message=message,
+        facts=facts,
+        inferences=inferences,
+        recommendations=recommendations,
+        open_questions=open_q,
+        tool_trace=tool_trace,
+        history=_session_history(sid),
+    )
     payload = grounding.build_structured_reply(
         runtime=rt,
         session_id=sid,
@@ -126,11 +128,29 @@ def run_local_chat(
         inferences=inferences,
         recommendations=recommendations,
         open_questions=open_q,
+        reply=str(llm.get("reply") or ""),
     )
+    payload["llm_model"] = llm.get("model")
     return persist_turn(
         payload, request_id=request_id, session_id=sid, message=message,
         tool_trace=tool_trace, t0=t0, runtime=rt, on_event=on_event,
     )
+
+
+def _session_history(session_id: str) -> list[dict[str, str]]:
+    """读取同一会话最近历史，供上游模型保持多轮上下文。"""
+    raw = audit.load_session(session_id) or {}
+    items: list[dict[str, str]] = []
+    for msg in (raw.get("messages") or [])[-8:]:
+        role = msg.get("role")
+        content = msg.get("content")
+        if role == "user" and isinstance(content, str):
+            items.append({"role": "user", "content": content})
+        elif role == "assistant" and isinstance(content, dict):
+            reply = str(content.get("reply") or "").strip()
+            if reply:
+                items.append({"role": "assistant", "content": reply})
+    return items
 
 
 def persist_turn(
@@ -181,9 +201,10 @@ def persist_turn(
         {
             "session_id": session_id,
             "latency_ms": payload["latency_ms"],
-            "runtime": runtime,
-            "pi_fallback": bool(payload.get("pi_fallback")),
-            "pi_status": payload.get("pi_status"),
-        },
-    )
+                "runtime": runtime,
+                "pi_fallback": bool(payload.get("pi_fallback")),
+                "pi_status": payload.get("pi_status"),
+                "llm_model": payload.get("llm_model"),
+            },
+        )
     return payload
