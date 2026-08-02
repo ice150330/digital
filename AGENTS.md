@@ -8,7 +8,7 @@
 > - **`CHANGE.md`：** 每次有意义修改的人工记录  
 > **冲突优先级：** 硬性禁止项以本文件为准；前端视觉/交互以 `DESIGN.md` 为准；范围以计划书为准。  
 > **语言：** 用户可见说明、文档、注释（非标识符）用**中文**。  
-> **最后同步：** 2026-07-31（v0.6：重构计划 Stage 1–4/6 — agent 配置统一 + @tool 装饰器一处注册 + runtime 分发上提 + 运行时缓存；`/data/dashboard`+`/data/cross-matrix` 描述性端点（横截面口径）；`render_chart` 图表工具 + chart-spec v1.0；Pi 侦察报告锁定 A 主 B 兜底协议，真实编排待安装后落实）
+> **最后同步：** 2026-08-02（v0.8：Halo 浅色圆角工作台与 `/screen` 中央转化星图并入 AppLayout；Pi 桥接和 chart-spec 既有协议保持不变）
 
 ---
 
@@ -479,7 +479,10 @@ run_pi_chat（pi_runtime.py）
 | GET | `/rules` | P1 |
 | POST | `/simulate/budget` | 阶段9（期望值口径，`export=true` 落 CSV） |
 | POST | `/agent/chat` | P0 |
+| POST | `/agent/chat/stream` | P1（SSE：文本、工具状态、图表、五段契约与完成事件） |
+| GET | `/agent/sessions` | P1（会话摘要列表，按 `updated_at` 倒序，limit 1–200） |
 | GET | `/agent/sessions/{session_id}` | P0 |
+| DELETE | `/agent/sessions/{session_id}` | P1（软删除到 `outputs/agent_sessions/deleted/`，可恢复） |
 | POST | `/agent/runtime` | P1 |
 | GET | `/agent/pi/status` | P1（含 is_stub/default_runtime/skills/fallback_reason） |
 | GET | `/agent/audit/recent` | 阶段9（审计行倒序，limit 1–500） |
@@ -491,7 +494,8 @@ run_pi_chat（pi_runtime.py）
 
 - **预测：** `proba`, `label`, `threshold`, `run_id`, `model_name`  
 - **解释：** `top_features[{name, feature_value, shap_value}]`, `method`, `run_id`  
-- **Agent：** 五段字段 + `tool_trace` + `session_id` + `runtime` + `pi_fallback`（Pi 降级标注）  
+- **Agent 普通响应：** 五段字段 + `tool_trace` + `session_id` + `runtime` + `pi_fallback`（Pi 降级标注）
+- **Agent SSE：** 请求体与普通对话一致；事件为 `tool_start`、`tool_end`、`chart`、`facts`、`inferences`、`recommendations`、`open_questions`、`text`、`done`、`error`。`text.data.delta` 仅追加文本；`done.data` 至少含 `session_id`、`runtime`、`latency_ms`、`pi_fallback`。工具和图表数字仍由宿主产生。
 - **模拟：** `curve[{k, expected_net, ...}]` + `recommended_k` + `top_list`（≤50 预览）+ `disclaimer`
 - **chart-spec v1.0（Stage4 `render_chart`）：** `{spec_version, chart_type(bar|line|pie|scatter|heatmap|funnel), title, categories[], series[{name,values[]}], value_format(int|float4|percent2|money), axis{x_name,y_name}, caliber, source{kind,ref,run_id}, disclaimer?}`；数据集白名单 9 项（conversion_by_channel/type、leaderboard_pr、age/income/adspend_hist、segment_sizes、lift_deciles、global_shap_top）；越界 `VALIDATION_ERROR`
 - **大屏聚合（Stage3 描述性口径，后端为真相源）：**
@@ -597,7 +601,7 @@ cd frontend && npm install && npm run dev
 # 前端开发端口 5600；API baseURL → http://127.0.0.1:9800/api/v1
 ```
 
-**实现状态摘要：** 清洗/训练 E0–E8 全矩阵（Stacking/校准/消融）/SHAP/PDP/反事实/多算法分群/预算模拟/全量 API（含模拟与报告 + Stage3 描述性聚合 dashboard/cross-matrix）/十路由前端（+/screen 大屏，四层叙事分组）/Agent 装饰器工具注册 + render_chart 图表工具（chart-spec v1.0 会话内联渲染）/Pi 编排中枢（默认 runtime + 7 skills + 一键报告 + 审计回放；真实编排协议已侦察锁定，待真实安装落实）已落地。开发端口：API **9800**、前端 **5600**。P2（RAG、K8s、多租户、因果 uplift 主线）默认不做。
+**实现状态摘要：** 清洗/训练 E0–E8 全矩阵（Stacking/校准/消融）/SHAP/PDP/反事实/多算法分群/预算模拟/全量 API（含模拟与报告 + Stage3 描述性聚合 dashboard/cross-matrix）/十路由前端（Halo 浅色圆角工作台、`/screen` 中央转化星图并入 AppLayout、五组叙事导航）/Agent 装饰器工具注册 + render_chart 图表工具（chart-spec v1.0 会话内联渲染）/Pi 编排中枢（默认 runtime + 7 skills + 一键报告 + 审计回放；真实编排协议已侦察锁定，待真实安装落实）已落地。开发端口：API **9800**、前端 **5600**。P2（RAG、K8s、多租户、因果 uplift 主线）默认不做。
 
 ---
 

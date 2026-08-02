@@ -26,6 +26,40 @@
 
 ## 变更日志
 
+## 2026-08-02 — Halo 浅色大屏与视觉系统第一批全量重构
+
+- **类型：** design / refactor / docs
+- **范围：** `frontend/src/{views,styles,utils,components,router,App.vue}`、`pen/ui.pen`、`DESIGN.md`、`docs/plans/Design Tokens.md`、`AGENTS.md`
+- **摘要：**
+  - 前端主题从 v1 蓝色/暗色大屏口径切换到 Halo v2 浅色圆角工作台：主色 `#5749f4`、浅色页面背景、24px 卡片圆角、40px 大面板圆角与统一阴影
+  - `/screen` 不再通过 `meta.fullscreen` 绕开 `AppLayout`，重构为工作台内的中央转化星图：ECharts graph 居中，外圈十个业务图标徽章串起数据、模型、解释、分群、规则、预算与 Pi 状态
+  - 图表主题去掉独立 `screen` 分支，`GraphChart` 纳入 ECharts 注册，所有图表统一使用浅色 `chartTheme`
+  - 补齐 ECharts `GraphicComponent` 注册，内收外圈徽章位置，移动端 `screen`、Tag、RunIdChip、AppLayout 主区增加收缩约束；业务卡片容器统一升到 `--radius-card`
+  - `pen/ui.pen` 已同步 Halo v2 变量与 Design Tokens 画布；组件库与 `/screen` 画布仍需通过 Pencil 执行器继续收口
+  - `DESIGN.md` 与 `docs/plans/Design Tokens.md` 升版到 Halo v2，明确 `/screen` 并入 AppLayout、中央星图、外圈小图标、浅色默认主题和接口取数红线
+- **原因：** 执行 `docs/plans/2026-08-02-Halo风格全量视觉改造计划.md`，落实用户要求的“大图表居中、围一圈小图标、页面不再与整体框架分开、默认浅色系、ui.pen 与文档同步”。
+- **影响：** 答辩开场从旧拼版暗色大屏切换为浅色 Halo 工作台大屏；文档、运行时 token、图表主题开始同源收敛。
+- **破坏性：** 无（前端路由仍为 `/screen`，API 契约不变）
+- **关联：** `docs/plans/2026-08-02-Halo风格全量视觉改造计划.md`
+- **验证：** `cd frontend; npm run build` 通过（仅 Vite chunk >500 kB 非阻塞警告）；`pytest tests/test_openapi_routes.py tests/test_agent_tools.py` 通过（22 passed，1 个第三方 deprecation warning）；`frontend/src` 静态搜索确认无 `meta.fullscreen`、`data-theme="screen"`、`chartColors('screen')`、`axisTheme('screen')` 残留；本地 API 9800 + Vite 5600 下用 Chrome headless 截图检查 `/screen` 桌面与 390px，CDP 量测 390px `docScrollWidth=docClientWidth=375`，顶部栏和侧栏可见。
+
+## 2026-07-31 — 前端全量重构 Stage 1–5：组件库、真实流式与会话管理落地
+
+- **类型：** feat / refactor / design
+- **范围：** `frontend/`、`src/digital_marketing/{agent,api,schemas}/`、`tests/`、`AGENTS.md`、`DESIGN.md`、重构计划
+- **摘要：**
+  - 按 `pen/ui.pen` 与 Design Tokens v1.0 对齐全局令牌、Element Plus 覆盖、工作台布局和 `/screen` 专用暗色变量
+  - 接入 `@iconify/vue` Unicons 薄封装，新增 Button/Tag/KpiCard/StatStrip/Disclaimer/Agent 会话与工具时间线组件
+  - Agent 页面接入 `POST /agent/chat/stream` 真实 SSE：文本增量、工具开始/结束、图表、五段契约、完成与错误事件实时呈现，并支持停止生成
+  - 新增会话摘要列表与可恢复软删除 API；前端支持历史会话搜索、新建、切换与删除，Pi 控制台显式展示 SDK 桥接状态
+  - 补齐 ConversionDonut、QualityIssueRow、SegmentCard、RuleRow、RunIdChip、PredictResultCard、LoadingState、CodeBlock 等业务组件；图表主题统一从 `chartTheme.ts` 与 tokens 取色
+  - 浏览器视觉验收修复 Iconify CSS 变量尺寸失效、ECharts 漏注册 PieChart、Agent 流式回调绕过 Pinia 响应式对象、390px 三栏溢出与深色代码块样式污染
+- **原因：** 将前端从 Element Plus 默认样式收束为设计样张中的浅色分析工作台，并把 Agent 体验提升为答辩主路径。
+- **影响：** 新增三个 P1 Agent 契约：`POST /agent/chat/stream`、`GET /agent/sessions`、`DELETE /agent/sessions/{session_id}`；前端新增 Pinia 状态管理与 Iconify 依赖。
+- **破坏性：** 无
+- **关联：** `docs/plans/2026-07-31-前端全量重构计划.md` 阶段 1–5；`pen/ui.pen`
+- **验证：** `pytest -q`：**118 passed, 1 skipped**；Agent/OpenAPI 定向回归 **22 passed**；`npm run build` 通过（仅 ECharts/入口 chunk >500 kB 非阻塞警告）；Chrome CDP 验证十路由、侧栏折叠、阈值滑块、单条/批量预测与 SHAP、预算模拟、真实 SSE（2 工具 + 1 图表 + 3 契约块）、历史会话、一键报告和 API 断线中文错态；390px `scrollWidth=390`。
+
 ## 2026-07-31 — CLAUDE.md 改进：测试命令、runtime 口径与令牌源引用
 
 - **类型：** docs
