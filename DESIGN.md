@@ -4,7 +4,7 @@
 > **不在本文范围：** 系统架构、数据/ML、FastAPI、Agent/Pi 后端逻辑，统一见 `AGENTS.md`。
 > **配套文件：** 范围见 `docs/plans/`；变更见 `CHANGE.md`；视觉参考库见 `pen/ui.pen`。
 > **令牌源：** `docs/plans/Design Tokens.md` v2.0；运行时实现为 `frontend/src/styles/tokens.css`。
-> **版本：** v0.8.1（2026-08-02）— Halo 浅色圆角工作台、`/screen` 首页总览大屏回归 AppLayout、中央渠道转化桑基主视觉与 `pen/ui.pen` v2 重构。
+> **版本：** v0.11.1（2026-08-02）— AI 分析台消息支持 Markdown 完整样式、五段契约默认折叠、会话列表信息增强并改为组件内滚动；Halo 浅色圆角工作台、`/screen` 桑基图与 `/pi` 配置中枢保持。
 
 ---
 
@@ -37,7 +37,7 @@ digital 前端是答辩可演示的数据分析工作台，风格定调为 **Hal
 2. 模型页突出 PR-AUC、ROC-AUC、校准、阈值和 Dummy 对照。
 3. 客户页支持单客预测、SHAP 解释和反事实敏感性分析。
 4. 分群、规则、模拟页承接数据挖掘结论，但不宣称因果收益。
-5. Agent 页展示五段契约、tool_trace、会话和内联 chart-spec 图表。
+5. Agent 页展示真实上游 AI 回复、Markdown 消息、默认折叠的五段契约、tool_trace、会话、运行阶段和内联 chart-spec 图表。
 6. `/screen` 作为开场全景：一个重点“唬人”的中央渠道转化桑基图在视觉中心，外围一圈较小图表串起转化、渠道、质量、阶段、划分和默认产物。
 
 ---
@@ -71,8 +71,8 @@ digital 前端是答辩可演示的数据分析工作台，风格定调为 **Hal
 | `/segments` | 分群画像 | 簇画像、PCA、算法对比、稳定性 |
 | `/rules` | 关联规则 | support/confidence/lift 表格与筛选 |
 | `/simulate` | 预算模拟 | 期望价值曲线、推荐 K、Top 触达名单 |
-| `/agent` | AI 分析台 | 流式对话、tool_trace、五段契约、内联图表 |
-| `/pi` | Pi 编排中枢 | runtime 状态、skills、审计、一键报告 |
+| `/agent` | AI 分析台 | 真实 LLM 流式对话、Markdown 消息、运行监控、tool_trace、折叠契约、内联图表 |
+| `/pi` | Pi 编排中枢 | PiAgent 配置卡片、健康摘要、skills、审计、一键报告、会话回放 |
 | `/about` | 关于与复现 | 启动命令、数据来源、AI 使用边界 |
 
 全局布局：
@@ -97,6 +97,39 @@ AppLayout
 - 数据源：`/data/overview`、`/data/dashboard`、`/health`；桑基 link 值只能由后端返回的渠道样本量和转化率计算。
 - 口径：`dashboard.caliber` 原样展示；横截面阶段小图不得描述成真实用户逐步流失。
 - 响应式：窄屏下中心图与小图改成单列/双列流式排列；≤520px 隐藏侧栏，桑基图切换为纵向紧凑布局，不能相互遮挡或横向溢出。
+
+---
+
+### 3.2 AI 分析台
+
+`/agent` 是运行中的分析驾驶舱，不做营销页。布局固定为：左侧会话列表、中间对话、右侧运行监控；≤900px 单列堆叠，390px 不允许横向滚动。
+
+- Runtime 选择只展示 `pi` 与 `local`；`local` 表示上游 LLM + 宿主工具，不再展示模板模式作为用户入口。
+- 左侧会话列表展示标题、runtime、消息数、工具数、更新时间和短会话 ID；列表条目区在组件内部滚动，历史会话增加时不得继续撑高页面。
+- 右侧运行监控展示当前阶段（planning/bridge/tooling/replying/done/error）、当前工具、已完成工具数、图表数、SSE 事件数与最近事件时间。
+- 消息气泡展示 `runtime`、`llm_model`、`pi_fallback` 与耗时；消息正文使用 Markdown 渲染，至少覆盖标题、列表、引用、链接、行内代码、代码块、表格、分隔线与图片的响应式样式，禁用原始 HTML。
+- 五段契约中的观察事实、理解、建议和待确认内容默认折叠；用户主动展开前不得占用完整对话流空间。
+- 图表仍由 `render_chart` 的 chart-spec 内联渲染。
+- 工具时间线必须实时反映 `tool_start/tool_end/chart/error`，失败工具保留中文错误与重试入口。
+
+---
+
+### 3.3 Pi 编排中枢
+
+`/pi` 作为 PiAgent 运行中枢，页面顺序固定为：
+
+1. 顶部健康摘要：Runtime、Bridge、Skills、Audit 四个轻量指标块。
+2. `PiAgentConfigCard`：可保存 runtime、Bridge Model、Base URL、Pi executable、skills/session 目录、Pi timeout、LLM timeout、API Key 写入/清除；Bridge Model 是可搜索、可手填、可从上游刷新的下拉。
+3. Runtime 健康：展示默认 runtime、bridge model、Base URL、API Key 掩码、项目内 Pi 路径、SDK 桥接与降级原因。
+4. 运行诊断分区：skills 列表、一键分析报告、会话回放、审计日志。
+
+交互约束：
+
+- API Key 输入框为 password；保存成功后清空本地输入，只展示 `api_key_configured` 与 `api_key_preview`。
+- “刷新模型”只调用后端 `/agent/pi/models`，由后端访问上游 `/models`；无 Key、上游超时或旧后端未加载时，在字段下方显示中文错误，Bridge Model 仍可手填。
+- 非法路径、非法 URL、timeout 越界等错误必须用中文展示在配置卡片内，不弹出密钥明文。
+- 页面只调用 `/agent/pi/config`、`/agent/pi/models`、`/agent/pi/status`、`/agent/audit/recent`、`/agent/report`、`/agent/sessions/{session_id}`，不得在浏览器扫描 PATH、探测全局 `pi` 或直接把 Key 发给上游。
+- 390px 宽度下配置表单与状态摘要全部单列，输入框和表格不得撑出整页横向滚动。
 
 ---
 
@@ -143,10 +176,10 @@ AppLayout
 | 预测 | 展示 `proba`、`label`、`threshold`、`run_id`、`model_name` |
 | 模型指标 | 主展示 PR-AUC；Accuracy 仅作为对照，不能做主结论 |
 | SHAP | 展示 `top_features` 和 `method`，文案使用“模型贡献/敏感性” |
-| Agent | 展示 runtime、`pi_fallback`、五段契约和 `tool_trace` |
+| Agent | 展示 runtime、`llm_model`、`pi_fallback`、运行阶段、Markdown 消息、默认折叠契约和 `tool_trace` |
 | ChartCard | 只渲染宿主返回的 chart-spec v1.0，LLM/Pi 不产 spec |
 | 大屏 | `caliber` 原样展示；不得把横截面阶段解释为真实漏斗流失率 |
-| Pi | 只展示 `/agent/pi/status`，不在前端探测本机路径 |
+| Pi | `/agent/pi/config` 展示/保存配置；`/agent/pi/models` 获取上游模型候选；`/agent/pi/status` 展示健康；不在前端探测本机路径；不展示 API Key 明文 |
 
 ---
 
@@ -220,7 +253,8 @@ AppLayout
 | `ChartCard.vue` | 标题、口径、图表、脚注结构固定；未知图型用空态而非崩溃 |
 | `PageHeaderBar.vue` | 标题 20px 左右，不要英雄化 |
 | `Tag.vue` / `RunIdChip.vue` | 胶囊形，长 run_id 允许截断但 tooltip 保留全量 |
-| `AgentMessage.vue` | 用户/助手区分清楚；工具 trace 可展开 |
+| `MarkdownContent.vue` | 消息 Markdown 渲染层；禁用原始 HTML，长表格和代码块必须组件内横向滚动 |
+| `AgentMessage.vue` | 用户/助手区分清楚；消息正文走 Markdown，事实/理解/建议/待确认默认折叠 |
 | `ErrorState.vue` / `EmptyState.vue` | 中文说明 + 可执行下一步，不白屏 |
 
 不要卡片套卡片。重复列表项可以是卡片；页面大区块应是无框布局或全宽区域。

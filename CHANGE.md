@@ -26,6 +26,74 @@
 
 ## 变更日志
 
+## 2026-08-02 — AI 分析台会话支持 Markdown 与折叠契约
+
+- **类型：** feat / design / docs
+- **范围：** `frontend/src/components/{MarkdownContent.vue,AgentMessage.vue,SessionList.vue}`、`frontend/src/{stores,composables}/`、`frontend/package.json`、`DESIGN.md`
+- **摘要：**
+  - 新增 Markdown 消息渲染层，支持标题、列表、引用、链接、代码块、表格、分隔线、图片等常用样式，并禁用原始 HTML
+  - `/agent` 助手消息下方的观察事实、理解、建议、待确认内容改为默认折叠，用户主动展开后才查看
+  - 左侧会话列表展示 runtime、消息数、工具数、更新时间和短会话 ID，历史条目区改为组件内滚动，避免会话增多撑高页面
+- **原因：** 用户要求会话全面支持 Markdown 样式、四块固定内容默认折叠、左侧会话列表展示更多信息并固定组件高度。
+- **影响：** AI 分析台长回复和历史会话更适合阅读与回放；密钥、业务数字和 chart-spec 口径不变。
+- **破坏性：** 无
+- **验证：** `cd frontend; npm run build` 通过（仅 Vite chunk >500 kB 非阻塞警告）；临时 Playwright 拦截 `/agent` SSE 与会话列表，通过 Markdown 标题/表格/代码块/引用渲染、四个契约折叠默认关闭、展开交互、左侧会话列表组件内滚动和 1440px 无横向溢出检查。
+
+## 2026-08-02 — AI 分析台改为真实上游 LLM 回复与运行监控
+
+- **类型：** feat / fix / design / docs / security
+- **范围：** `src/digital_marketing/agent/{llm_client.py,local_runtime.py,pi_runtime.py}`、`src/digital_marketing/api/routes_agent.py`、`src/digital_marketing/schemas/agent.py`、`frontend/src/{api,stores,views,components}/`、`tests/`、`AGENTS.md`、`DESIGN.md`
+- **摘要：**
+  - 新增上游 OpenAI-compatible chat/completions 客户端，local 与 Pi 降级路径均基于宿主工具事实调用真实 LLM 生成回复
+  - 移除 `/agent` 页面上的模板模式入口；上游不可用时返回 `LLM_UNAVAILABLE`，不再用本地脚本硬编码整段回复伪装 AI
+  - SSE 增加 `status` 事件，前端跟踪 planning/bridge/tooling/replying/done/error、当前工具、完成工具数、图表数、事件数与最近事件时间
+  - 响应和消息元信息增加 `llm_model`；Pi bridge 注入本地 `.env`/环境变量 Key、Base URL 与模型配置
+  - AI 分析台布局整理为会话列表、对话、运行监控三栏，移动端单列展示
+- **原因：** 用户要求优化 AI 分析台布局，实现真实 AI 会话与回复，禁止继续使用硬编码本地脚本回复，并验证会话、图表和状态监控。
+- **影响：** `/agent` 的回复文本由上游模型组织，数字仍只来自后端工具与 chart-spec；未配置 Key 时会明确报错而不是假回复。
+- **破坏性：** `/agent` 用户入口不再提供 template 模式；自动化测试使用 mock LLM，不依赖真实 Key。
+- **验证：** `pytest -q` 通过（132 passed, 1 skipped）；`cd frontend; npm run build` 通过（仅 Vite chunk >500 kB 非阻塞警告）；`git diff --check` 通过（仅 Windows LF→CRLF 提示）；API 真实 SSE 验证 `runtime=local` 返回 `status/tool_start/tool_end/chart/text/done`，3 个工具 + 1 个图表，`llm_model=deepseek-v4-flash`；Playwright 验证 `/agent` 默认 Pi 路径与拦截 local 路径均能完成会话、生成《渠道转化率》图表、展示运行监控，390px 实际会话后无横向溢出。
+
+## 2026-08-02 — PiAgent Bridge Model 支持上游模型列表选择
+
+- **类型：** feat / fix / docs / security
+- **范围：** `src/digital_marketing/agent/model_catalog.py`、`src/digital_marketing/api/routes_agent.py`、`src/digital_marketing/schemas/agent.py`、`frontend/src/{api,components,views}/`、`AGENTS.md`、`DESIGN.md`
+- **摘要：**
+  - 新增 `GET /agent/pi/models`，由后端使用已保存的 `llm.base_url`（空值默认 DeepSeek）和本地 Key 请求上游 OpenAI-compatible `/models`
+  - 响应仅返回模型 id/label/owner、来源 endpoint、当前选中模型，不返回 API Key 明文
+  - `PiAgentConfigCard` 的 Bridge Model 从纯输入升级为可搜索、可手填、可刷新上游列表的下拉；无 Key/上游错误时字段下方显示中文提示
+  - `/pi` 页面加载时若已配置 Key 自动刷新模型列表；保存配置后按 Key 状态刷新或清空模型候选
+  - 修正 `/pi` 小屏下摘要条与 Runtime/Skills 分区被 Element Plus 表格撑宽的问题，移动端不再依赖隐藏横向溢出
+- **原因：** 用户要求“增加一个可选模型的功能，从上游获取模型列表”。
+- **影响：** 可在 `/pi` 直接选择上游返回的模型作为 Pi bridge model，同时保留手填能力和密钥不进浏览器的安全边界。
+- **破坏性：** 无
+- **验证：** `pytest tests/test_agent_models.py tests/test_agent_config.py tests/test_agent_runtime.py tests/test_pi_bridge.py tests/test_openapi_routes.py` 通过（38 passed, 1 skipped）；`cd frontend; npm run build` 通过（仅 Vite chunk >500 kB 非阻塞警告）；`git diff --check` 通过（仅 Windows LF→CRLF 提示）；Playwright 检查 `/pi` 1440px 与 390px，模型刷新文案可见且文档无横向溢出。
+
+## 2026-08-02 — `/pi` 兼容旧后端配置接口 404
+
+- **类型：** fix
+- **范围：** `frontend/src/api/agent.ts`、`frontend/src/views/PiConsoleView.vue`
+- **摘要：** `fetchPiConfig()` 在 `/agent/pi/config` 未注册（旧 API 进程未重启）时自动回退到既有 `/agent/pi/status`，合成只读配置快照；`/pi` 页面不再整页报“加载失败”，而是在配置卡片内提示“后端尚未加载 /agent/pi/config，重启 API 后即可保存配置”。
+- **原因：** 运行中的 9800 后端仍是旧路由，OpenAPI 只有 `/agent/pi/status`，前端直接请求新配置接口会返回 404。
+- **影响：** `/pi` 在前后端短暂版本不一致时仍可展示 Runtime/Skills/审计；配置保存仍需重启 API 加载新后端接口后使用。
+- **破坏性：** 无
+- **验证：** `cd frontend; npm run build` 通过（仅 Vite chunk >500 kB 非阻塞警告）；Chrome headless 使用当前 `5600 + 9800` 旧后端组合验证：无全局加载失败，配置卡片存在，兼容提示出现，桌面无横向溢出。
+
+## 2026-08-02 — PiAgent 配置卡片与运行中枢优化
+
+- **类型：** feat / design / docs / security
+- **范围：** `src/digital_marketing/{agent,api,schemas}/`、`frontend/src/{api,components,views}/`、`config/agent.yaml`、`AGENTS.md`、`DESIGN.md`
+- **摘要：**
+  - 新增 `GET /agent/pi/config` 与 `PUT /agent/pi/config`，返回 `settings + status`，并复用 `/agent/pi/status` 的健康信息
+  - `config/agent.yaml` 新增 `pi.bridge_model`，配置接口支持保存 runtime、LLM Base URL/timeout、Pi executable、skills/session 目录与 Pi timeout
+  - API Key 仅写入本地 `.env` 的 `DEEPSEEK_API_KEY`，响应只返回 `api_key_configured` 和掩码 `api_key_preview`
+  - Pi bridge 子进程从配置注入 `PI_BRIDGE_MODEL`、`DEEPSEEK_BASE_URL`/`OPENAI_BASE_URL` 与 `pi.timeout_sec`
+  - `/pi` 页面新增 `PiAgentConfigCard.vue`，并整理为健康摘要、配置卡、Runtime 健康、Skills、一键报告、会话回放、审计日志的运行中枢
+- **原因：** 参考 Lunte 的 “settings + health、密钥掩码、诊断分区” 产品模式，增强本项目 PiAgent 可配置性与答辩可演示性。
+- **影响：** 可在页面直接保存项目内 PiAgent 配置，同时继续遵守 `tools/pi-cli/` 隔离和密钥不回显红线。
+- **破坏性：** 无
+- **验证：** `pytest tests/test_agent_config.py tests/test_agent_runtime.py tests/test_pi_bridge.py tests/test_openapi_routes.py` 通过（34 passed, 1 skipped）；`cd frontend; npm run build` 通过（仅 Vite chunk >500 kB 非阻塞警告）；`git diff --check` 通过（仅 Windows LF→CRLF 提示）；Chrome headless 检查 `/pi` 1440px 与 390px 无横向溢出，非法 Pi 路径在配置卡内显示中文错误，页面未出现 API Key 明文。
+
 ## 2026-08-02 — 总览大屏改为渠道转化桑基主视觉
 
 - **类型：** design / feat
