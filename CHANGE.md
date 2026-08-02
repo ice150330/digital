@@ -26,6 +26,16 @@
 
 ## 变更日志
 
+## 2026-08-02 — README 按 GitHub 主流结构重构
+
+- **类型：** docs
+- **范围：** `README.md`、`CHANGE.md`
+- **摘要：** 将 README 从内部阶段验收式说明重构为 GitHub 仓库常见结构，首屏突出项目定位、技术栈和功能亮点，并整理快速开始、常用命令、页面路由、API 概览、项目结构、配置安全与测试基线。
+- **原因：** 用户要求按照 GitHub 仓库主流 README 撰写方法重构 README，提升外部读者和答辩查看时的可读性。
+- **影响：** README 更适合作为仓库首页入口；同步修正 `/screen` 浅色桑基大屏、Agent Markdown 会话、Pi 模型列表、测试数量等最新状态。
+- **破坏性：** 无
+- **验证：** `git diff --check README.md CHANGE.md` 通过。
+
 ## 2026-08-02 — AI 分析台会话支持 Markdown 与折叠契约
 
 - **类型：** feat / design / docs
