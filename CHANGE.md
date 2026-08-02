@@ -26,6 +26,16 @@
 
 ## 变更日志
 
+## 2026-08-02 — 收紧 outputs 产物忽略规则
+
+- **类型：** chore
+- **范围：** `.gitignore`、`CHANGE.md`
+- **摘要：** 增加 `outputs/**` 与 `output/**` 兜底忽略规则，并保留 `.gitkeep` 占位文件，避免截图、验证目录和运行产物继续出现在 Git 状态中。
+- **原因：** 用户要求设定 Git 规则，忽略 output 产出的各种文件。
+- **影响：** 后续运行、截图、模型/报告等输出产物默认不入库；已有被跟踪文件不受 ignore 规则自动移除。
+- **破坏性：** 无
+- **验证：** `git status --short --ignored outputs output` 确认新产物变为 ignored；`git diff --check .gitignore CHANGE.md` 通过。
+
 ## 2026-08-02 — README 按 GitHub 主流结构重构
 
 - **类型：** docs
