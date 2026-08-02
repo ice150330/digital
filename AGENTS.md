@@ -8,7 +8,7 @@
 > - **`CHANGE.md`：** 每次有意义修改的人工记录  
 > **冲突优先级：** 硬性禁止项以本文件为准；前端视觉/交互以 `DESIGN.md` 为准；范围以计划书为准。  
 > **语言：** 用户可见说明、文档、注释（非标识符）用**中文**。  
-> **最后同步：** 2026-07-31（v0.6：重构计划 Stage 1–4/6 — agent 配置统一 + @tool 装饰器一处注册 + runtime 分发上提 + 运行时缓存；`/data/dashboard`+`/data/cross-matrix` 描述性端点（横截面口径）；`render_chart` 图表工具 + chart-spec v1.0；Pi 侦察报告锁定 A 主 B 兜底协议，真实编排待安装后落实）
+> **最后同步：** 2026-08-02（v0.11：AI 分析台真实上游 LLM 回复、`status` SSE 状态监控、`llm_model` 追踪；工具接地与图表 spec 仍由宿主产生）
 
 ---
 
@@ -363,10 +363,11 @@ outputs/db/            # SQLite app.db（主数据轨，可重建）
 ### 9.1 原则
 
 - **Host-executed tools：** 工具在本仓库 Python 执行；LLM/Pi 只编排与叙述。  
-- 默认 runtime：**`pi`**（编排中枢）；stub/未安装/桥接失败时**明确降级 local 并在响应 `pi_fallback` 与 `open_questions` 标注**；无 Key 可 `template`。  
-- **Pi 桥接（Stage5，范式参考 VibeStart）：** `tools/pi-cli/bridge/chat.mjs` 以同进程 SDK（`createAgentSession` + `defineTool` customTools + `ExtensionFactory` 注入宿主接地指令）运行 Pi；每个 customTool 的 `execute` 仅是**代理**——HTTP loopback 回宿主 `POST /agent/tool-run` 由 Python REGISTRY 实算（数字永不出宿主）；工具清单来自 `GET /agent/tools/manifest`（@tool 声明的 description/parameters 为唯一真相）；桥接经 stdio JSONL 与 Python 通信（`tool_start/tool_end/done/error`），五段契约由宿主 `grounding` 从工具结果装配；**桥接脚本与 SDK 包均限 `tools/pi-cli/` 下**，node 为系统运行时（§9.3 限制的是 pi 而非 node）。
-- 输出字段：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace`。  
-- skills 生态：`agent/skills/<name>/SKILL.md` ×7（frontmatter name/description + 编排步骤 + 口径红线）；模板模式复用同套编排，保证无 Key 可演示。  
+- 默认 runtime：**`pi`**（编排中枢）；stub/未安装/桥接失败时**明确降级 local 并在响应 `pi_fallback` 与 `open_questions` 标注**；local 降级路径必须调用上游 OpenAI-compatible chat/completions 生成真实 AI 回复，禁止再把本地脚本拼出的固定段落当作 AI 回复。
+- **Pi 桥接（Stage5，范式参考 VibeStart）：** `tools/pi-cli/bridge/chat.mjs` 以同进程 SDK（`createAgentSession` + `defineTool` customTools + `ExtensionFactory` 注入宿主接地指令）运行 Pi；每个 customTool 的 `execute` 仅是**代理**——HTTP loopback 回宿主 `POST /agent/tool-run` 由 Python REGISTRY 实算（数字永不出宿主）；工具清单来自 `GET /agent/tools/manifest`（@tool 声明的 description/parameters 为唯一真相）；桥接经 stdio JSONL 与 Python 通信（`tool_start/tool_end/done/error`），五段契约由宿主 `grounding` 从工具结果装配；`_run_bridge` 从 `config/agent.yaml` 注入 `PI_BRIDGE_MODEL`、`DEEPSEEK_BASE_URL`/`OPENAI_BASE_URL` 与 `pi.timeout_sec`；**桥接脚本与 SDK 包均限 `tools/pi-cli/` 下**，node 为系统运行时（§9.3 限制的是 pi 而非 node）。
+- **模型发现：** `GET /agent/pi/models` 由后端用 `config/agent.yaml llm.base_url`（空值默认 `https://api.deepseek.com`）和本地 `.env`/环境变量中的 Key 请求上游 OpenAI-compatible `GET /models`；前端只拿模型 id/owner，不接触 Key，不直接跨域访问上游。
+- 输出字段：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace` / `llm_model`。
+- skills 生态：`agent/skills/<name>/SKILL.md` ×7（frontmatter name/description + 编排步骤 + 口径红线）；无 Key 或上游不可用时返回 `LLM_UNAVAILABLE`，不得伪装成真实 AI 回复。
 - 一键报告：`generate_analysis_report` 编排工具 → markdown 落盘 `outputs/reports/analysis_<ts>.md`，数字全部来自工具结果，尾部固定「口径与限制」节。
 - **图表工具（Stage4）：** `render_chart` 由宿主从真实数据源（SQLite/产物）计算数据 → 返回 chart-spec v1.0 纯 JSON；前端 `ChartCard` 映射渲染，**色板以前端 tokens 为唯一真相**；LLM/Pi 永不产数字、**永不产 spec**（Pi 集成层输出仅叙述文本）。  
 
@@ -479,8 +480,14 @@ run_pi_chat（pi_runtime.py）
 | GET | `/rules` | P1 |
 | POST | `/simulate/budget` | 阶段9（期望值口径，`export=true` 落 CSV） |
 | POST | `/agent/chat` | P0 |
+| POST | `/agent/chat/stream` | P1（SSE：文本、工具状态、图表、五段契约与完成事件） |
+| GET | `/agent/sessions` | P1（会话摘要列表，按 `updated_at` 倒序，limit 1–200） |
 | GET | `/agent/sessions/{session_id}` | P0 |
+| DELETE | `/agent/sessions/{session_id}` | P1（软删除到 `outputs/agent_sessions/deleted/`，可恢复） |
 | POST | `/agent/runtime` | P1 |
+| GET | `/agent/pi/config` | P1（返回 settings + status；密钥仅布尔与掩码） |
+| PUT | `/agent/pi/config` | P1（写 `config/agent.yaml` 非密钥字段；`DEEPSEEK_API_KEY` 仅写本地 `.env`） |
+| GET | `/agent/pi/models` | P1（后端从上游 `/models` 拉取 Bridge Model 候选；Key 不回显） |
 | GET | `/agent/pi/status` | P1（含 is_stub/default_runtime/skills/fallback_reason） |
 | GET | `/agent/audit/recent` | 阶段9（审计行倒序，limit 1–500） |
 | POST | `/agent/report` | 阶段9（一键分析报告落盘） |
@@ -491,7 +498,10 @@ run_pi_chat（pi_runtime.py）
 
 - **预测：** `proba`, `label`, `threshold`, `run_id`, `model_name`  
 - **解释：** `top_features[{name, feature_value, shap_value}]`, `method`, `run_id`  
-- **Agent：** 五段字段 + `tool_trace` + `session_id` + `runtime` + `pi_fallback`（Pi 降级标注）  
+- **Agent 普通响应：** 五段字段 + `tool_trace` + `session_id` + `runtime` + `llm_model` + `pi_fallback`（Pi 降级标注）
+- **Agent SSE：** 请求体与普通对话一致；事件为 `status`、`tool_start`、`tool_end`、`chart`、`facts`、`inferences`、`recommendations`、`open_questions`、`text`、`done`、`error`。`status.data.phase` 用于前端运行监控；`text.data.delta` 仅追加文本；`done.data` 至少含 `session_id`、`runtime`、`latency_ms`、`pi_fallback`、`llm_model`。工具和图表数字仍由宿主产生，回复文本由上游模型根据宿主事实组织。
+- **Pi 配置：** `settings{runtime,llm{base_url,model,timeout_sec,api_key_configured,api_key_preview},pi{executable,skills_dir,session_dir,timeout_sec,bridge_model},updated_at}` + `status`（复用 `/agent/pi/status`）；响应与日志不得包含 API Key 明文。
+- **Pi 模型列表：** `base_url`, `models[{id,label,owned_by}]`, `n`, `selected_model`, `source{kind,endpoint}`；上游失败返回 envelope error，不暴露 Key 明文。
 - **模拟：** `curve[{k, expected_net, ...}]` + `recommended_k` + `top_list`（≤50 预览）+ `disclaimer`
 - **chart-spec v1.0（Stage4 `render_chart`）：** `{spec_version, chart_type(bar|line|pie|scatter|heatmap|funnel), title, categories[], series[{name,values[]}], value_format(int|float4|percent2|money), axis{x_name,y_name}, caliber, source{kind,ref,run_id}, disclaimer?}`；数据集白名单 9 项（conversion_by_channel/type、leaderboard_pr、age/income/adspend_hist、segment_sizes、lift_deciles、global_shap_top）；越界 `VALIDATION_ERROR`
 - **大屏聚合（Stage3 描述性口径，后端为真相源）：**
@@ -526,7 +536,7 @@ run_pi_chat（pi_runtime.py）
 - `database.path`：默认 `outputs/db/app.db`（相对项目根）  
 - `api.prefix`：`/api/v1`；`api.cors_origins`：Vite 开发源  
 
-**环境变量：** `DIGITAL_ROOT` / `DIGITAL_DATABASE_URL` / `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `DIGITAL_AGENT_RUNTIME`
+**环境变量：** `DIGITAL_ROOT` / `DIGITAL_DATABASE_URL` / `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `DIGITAL_AGENT_RUNTIME`。`/agent/pi/config` 的配置卡片只允许把 DeepSeek Key 写入本地 `.env` 的 `DEEPSEEK_API_KEY`，接口返回仅给 `api_key_configured` 与 `api_key_preview`。
 
 **agent.yaml 示意：**
 
@@ -539,9 +549,10 @@ llm:
   timeout_sec: 60
 pi:
   executable: tools/pi-cli/node_modules/.bin/pi
-  skills_dir: agent/skills
+  skills_dir: src/digital_marketing/agent/skills
   session_dir: outputs/agent_sessions
   timeout_sec: 180
+  bridge_model: deepseek/deepseek-chat
 tools:
   whitelist: []        # 与工具注册表同步（五处联动）
 audit:
@@ -597,7 +608,7 @@ cd frontend && npm install && npm run dev
 # 前端开发端口 5600；API baseURL → http://127.0.0.1:9800/api/v1
 ```
 
-**实现状态摘要：** 清洗/训练 E0–E8 全矩阵（Stacking/校准/消融）/SHAP/PDP/反事实/多算法分群/预算模拟/全量 API（含模拟与报告 + Stage3 描述性聚合 dashboard/cross-matrix）/十路由前端（+/screen 大屏，四层叙事分组）/Agent 装饰器工具注册 + render_chart 图表工具（chart-spec v1.0 会话内联渲染）/Pi 编排中枢（默认 runtime + 7 skills + 一键报告 + 审计回放；真实编排协议已侦察锁定，待真实安装落实）已落地。开发端口：API **9800**、前端 **5600**。P2（RAG、K8s、多租户、因果 uplift 主线）默认不做。
+**实现状态摘要：** 清洗/训练 E0–E8 全矩阵（Stacking/校准/消融）/SHAP/PDP/反事实/多算法分群/预算模拟/全量 API（含模拟与报告 + Stage3 描述性聚合 dashboard/cross-matrix）/十路由前端（Halo 浅色圆角工作台、`/screen` 中央渠道转化桑基图并入 AppLayout、五组叙事导航）/Agent 装饰器工具注册 + render_chart 图表工具（chart-spec v1.0 会话内联渲染）/AI 分析台真实上游 LLM 回复 + status/tool/chart 事件监控/Pi 编排中枢（默认 runtime + 7 skills + PiAgent 配置卡片 + 上游模型列表选择 + 一键报告 + 审计回放）已落地。开发端口：API **9800**、前端 **5600**。P2（RAG、K8s、多租户、因果 uplift 主线）默认不做。
 
 ---
 

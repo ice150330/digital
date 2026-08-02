@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from digital_marketing.agent import audit as agent_audit
 from digital_marketing.agent.grounding import REQUIRED_SECTIONS
 from digital_marketing.agent.pi_runtime import pi_executable_path, pi_status
 from digital_marketing.agent.tools import list_tools, run_tool
@@ -45,6 +47,10 @@ def agent_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     root = project_root()
     monkeypatch.setenv("DIGITAL_ROOT", str(root))
     monkeypatch.setenv("DIGITAL_DATABASE_URL", f"sqlite:///{(tmp_path / 'a.db').as_posix()}")
+    monkeypatch.setattr(
+        "digital_marketing.agent.llm_client.chat_completion",
+        lambda messages, **kwargs: {"reply": "真实 LLM mock：已基于工具事实生成回复。", "model": "deepseek-chat"},
+    )
     clear_settings_cache()
     reset_engine()
     app = create_app()
@@ -57,7 +63,7 @@ def agent_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 def test_agent_chat_contract(agent_client: TestClient):
     r = agent_client.post(
         "/api/v1/agent/chat",
-        json={"message": "请给出数据规模和模型 PR-AUC"},
+        json={"message": "请给出数据规模和模型 PR-AUC", "runtime": "local"},
     )
     assert r.status_code == 200
     body = r.json()
@@ -68,6 +74,82 @@ def test_agent_chat_contract(agent_client: TestClient):
     assert data["tool_trace"]
     assert data["session_id"]
     assert data["runtime"] in {"local", "template", "pi"}
+    assert data["reply"].startswith("真实 LLM mock")
+    assert data["llm_model"] == "deepseek-chat"
+
+
+def _parse_sse(text: str) -> list[tuple[str, dict]]:
+    events: list[tuple[str, dict]] = []
+    for block in text.replace("\r\n", "\n").split("\n\n"):
+        if not block.strip():
+            continue
+        event = "message"
+        data_lines: list[str] = []
+        for line in block.splitlines():
+            if line.startswith("event:"):
+                event = line.removeprefix("event:").strip()
+            elif line.startswith("data:"):
+                data_lines.append(line.removeprefix("data:").strip())
+        if data_lines:
+            events.append((event, json.loads("\n".join(data_lines))))
+    return events
+
+
+def test_agent_chat_stream_sends_tool_text_and_done(agent_client: TestClient):
+    response = agent_client.post(
+        "/api/v1/agent/chat/stream",
+        json={"message": "请给出数据规模", "runtime": "local"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    events = _parse_sse(response.text)
+    names = [name for name, _ in events]
+    assert "status" in names
+    assert "tool_start" in names
+    assert "tool_end" in names
+    assert "facts" in names
+    assert "text" in names
+    assert names[-1] == "done"
+    done = events[-1][1]
+    assert done["session_id"]
+    assert done["runtime"] == "local"
+    assert done["llm_model"] == "deepseek-chat"
+
+
+def test_agent_chat_stream_empty_message_returns_error_event(agent_client: TestClient):
+    response = agent_client.post(
+        "/api/v1/agent/chat/stream",
+        json={"message": "   ", "runtime": "local"},
+    )
+    assert response.status_code == 200
+    events = _parse_sse(response.text)
+    assert events[-1][0] == "error"
+    assert events[-1][1]["code"] == "VALIDATION_ERROR"
+
+
+def test_agent_session_list_and_soft_delete(
+    agent_client: TestClient,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    monkeypatch.setattr(agent_audit, "session_dir", lambda: tmp_path)
+    response = agent_client.post(
+        "/api/v1/agent/chat/stream",
+        json={"message": "请给出数据规模", "runtime": "local"},
+    )
+    events = _parse_sse(response.text)
+    session_id = next(data["session_id"] for event, data in events if event == "done")
+
+    listed = agent_client.get("/api/v1/agent/sessions").json()["data"]
+    assert listed["n"] == 1
+    assert listed["items"][0]["session_id"] == session_id
+    assert listed["items"][0]["last_user_message"] == "请给出数据规模"
+
+    deleted = agent_client.delete(f"/api/v1/agent/sessions/{session_id}")
+    assert deleted.status_code == 200
+    assert deleted.json()["data"]["deleted"] is True
+    assert not (tmp_path / f"{session_id}.json").exists()
+    assert list((tmp_path / "deleted").glob(f"{session_id}-*.json"))
 
 
 def test_unknown_tool():

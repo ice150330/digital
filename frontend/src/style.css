@@ -12,33 +12,42 @@ body,
 }
 
 body {
-  font-family: var(--font-sans);
-  background: var(--color-bg);
-  color: var(--color-text);
+  font-family: var(--font-family-base);
+  background: var(--bg-page);
+  color: var(--text-body);
   -webkit-font-smoothing: antialiased;
 }
 
-button {
+button,
+input,
+textarea,
+select {
   font: inherit;
 }
 
-code {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  background: var(--color-code-bg);
-  padding: 1px 4px;
-  border-radius: 3px;
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* 路由切换轻 fade（Stage 6；DESIGN §11 允许的轻过渡，不耽误演示） */
+code {
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-xs);
+  background: var(--bg-subtle);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
 .route-fade-enter-active,
 .route-fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity var(--motion-duration-fast) var(--motion-easing-default);
 }
+
 .route-fade-enter-from,
 .route-fade-leave-to {
   opacity: 0;
 }
+
 @media (prefers-reduced-motion: reduce) {
   .route-fade-enter-active,
   .route-fade-leave-active {

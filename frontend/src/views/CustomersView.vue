@@ -23,9 +23,11 @@ import {
   type CounterfactualData, type CustomerExplainData,
 } from '../api/explain'
 import CounterfactualCurveChart from '../components/CounterfactualCurveChart.vue'
+import DisclaimerBanner from '../components/DisclaimerBanner.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
+import PredictResultCard from '../components/PredictResultCard.vue'
 import ShapBarChart from '../components/ShapBarChart.vue'
 import { formatProba } from '../utils/format'
 
@@ -153,6 +155,7 @@ onMounted(loadMeta)
       </template>
     </PageHeaderBar>
 
+    <DisclaimerBanner content="预测、SHAP 与反事实只描述模型行为；反事实面板用于敏感性分析，不构成因果效应或投放建议。" />
     <ErrorState v-if="error" :message="error" @retry="loadMeta" />
 
     <div v-else class="layout-2">
@@ -202,29 +205,7 @@ onMounted(loadMeta)
       </ElCard>
 
       <div>
-        <ElCard v-if="pred" shadow="never" class="section-card">
-          <template #header>预测结果</template>
-          <div class="result">
-            <div>
-              <div class="muted">proba</div>
-              <div class="big tabular-nums">{{ formatProba(pred.proba) }}</div>
-            </div>
-            <div>
-              <div class="muted">label</div>
-              <ElTag :type="pred.label === 1 ? 'success' : 'info'" size="large">
-                {{ pred.label === 1 ? '转化' : '未转化' }}
-              </ElTag>
-            </div>
-            <div>
-              <div class="muted">threshold</div>
-              <div class="tabular-nums">{{ formatProba(pred.threshold) }}</div>
-            </div>
-            <div>
-              <div class="muted">run_id</div>
-              <div class="mono">{{ pred.run_id }}</div>
-            </div>
-          </div>
-        </ElCard>
+        <PredictResultCard v-if="pred" :result="pred" class="section-card" />
 
         <ElCard v-if="expl?.top_features?.length" shadow="never" class="section-card">
           <template #header>
@@ -249,7 +230,7 @@ onMounted(loadMeta)
           >
           <ElSpace wrap class="w-full">
             <span class="muted">扰动特征</span>
-            <ElSelect v-model="cfFeature" style="width: 200px">
+            <ElSelect v-model="cfFeature" class="cf-feature-select">
               <ElOption
                 v-for="f in meta?.numeric_features ?? []"
                 :key="f"
@@ -342,7 +323,7 @@ onMounted(loadMeta)
 .layout-2 {
   display: grid;
   grid-template-columns: 1fr 1.2fr;
-  gap: 16px;
+  gap: var(--space-4);
 }
 @media (max-width: 992px) {
   .layout-2 {
@@ -354,21 +335,12 @@ onMounted(loadMeta)
   overflow: auto;
   padding-right: 4px;
 }
-.result {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-.big {
-  font-size: 28px;
-  font-weight: 700;
-}
 .batch-box {
-  margin-top: 12px;
+  margin-top: var(--space-3);
 }
 .batch-list {
-  margin: 8px 0 0;
-  padding-left: 18px;
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
   max-height: 160px;
   overflow: auto;
 }
@@ -376,16 +348,17 @@ onMounted(loadMeta)
   color: var(--el-color-danger);
 }
 .cf-block {
-  margin-top: 12px;
+  margin-top: var(--space-3);
 }
 .cf-head {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 .err-text {
-  color: var(--color-danger);
-  font-size: 13px;
+  color: var(--color-danger-text);
+  font-size: var(--font-size-sm);
 }
+.cf-feature-select { width: 200px; }
 </style>

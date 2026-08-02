@@ -11,12 +11,15 @@ import {
 import { fetchGlobalExplain, type GlobalExplainData } from '../api/explain'
 import CalibrationChart from '../components/CalibrationChart.vue'
 import ConfusionHeatmap from '../components/ConfusionHeatmap.vue'
+import DisclaimerBanner from '../components/DisclaimerBanner.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
 import LiftChart from '../components/LiftChart.vue'
+import LoadingState from '../components/LoadingState.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
 import RocPrCurveChart from '../components/RocPrCurveChart.vue'
 import ShapBarChart from '../components/ShapBarChart.vue'
+import StatStrip from '../components/StatStrip.vue'
 import ThresholdScanChart from '../components/ThresholdScanChart.vue'
 import { formatMetric } from '../utils/format'
 
@@ -64,6 +67,12 @@ const sliderRow = computed(() => {
   }
   return best
 })
+
+const statItems = computed(() => [
+  { label: '实验数量', value: String(items.value.length), hint: 'E0–E8 矩阵', icon: 'uil:flask', tone: 'info' as const },
+  { label: '主指标 PR-AUC', value: bestPr.value == null ? '—' : formatMetric(bestPr.value), hint: '排除 Dummy / 消融', icon: 'uil:chart', tone: 'primary' as const },
+  { label: '当前 run', value: selectedRun.value || '—', hint: '曲线与阈值联动', icon: 'uil:crosshair', tone: 'success' as const },
+])
 
 function isDummy(row: MetricRow | Record<string, unknown>) {
   return (
@@ -154,12 +163,12 @@ onMounted(load)
       </template>
     </PageHeaderBar>
 
-    <p class="disclaimer">
-      主指标顺序：PR-AUC → ROC-AUC → F1 → 混淆矩阵。Accuracy 在高正类比下易虚高，须与 Dummy 对照。
-      CI 重叠的 run 之间不能宣称「更优」；E5/E6 为消融实验，不参选默认 run。
-    </p>
+    <DisclaimerBanner content="主指标顺序：PR-AUC → ROC-AUC → F1 → 混淆矩阵。Accuracy 在高正类比下易虚高，须与 Dummy 对照；CI 重叠的 run 之间不能宣称更优。" />
+    <StatStrip v-if="items.length" :items="statItems" />
 
-    <ErrorState v-if="error && !loading" :message="error" @retry="load" />
+    <LoadingState v-if="loading && !items.length" label="正在读取 E0–E8 实验矩阵与评估产物…" />
+
+    <ErrorState v-else-if="error" :message="error" @retry="load" />
 
     <ElCard v-else-if="items.length" shadow="never" class="section-card">
       <template #header>
@@ -329,12 +338,12 @@ onMounted(load)
 
 <style scoped>
 .best {
-  color: var(--color-primary);
+  color: var(--color-primary-600);
 }
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
+  gap: var(--space-5);
 }
 @media (max-width: 1100px) {
   .grid-2 {
@@ -342,15 +351,15 @@ onMounted(load)
   }
 }
 .title {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
 }
 .slider-row {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-top: 8px;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
 }
 /* Stage 6：E4/E6 展示降权行（代码与端点保留，仅视觉弱化） */
 :deep(.el-table .muted-row) {

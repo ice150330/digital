@@ -113,6 +113,16 @@ def test_assemble_events_requires_done():
         _assemble_from_events(FAKE_EVENTS[:-1], session_id="t")
 
 
+def test_assemble_events_requires_real_reply():
+    events = [
+        {"type": "tool_start", "tool": "get_dataset_profile", "args": {}},
+        {"type": "tool_end", "tool": "get_dataset_profile", "ok": True, "result": {"n_rows": 8000}},
+        {"type": "done", "reply": "", "model": "deepseek-chat", "n_tool_calls": 1},
+    ]
+    with pytest.raises(PiBridgeError):
+        _assemble_from_events(events, session_id="t-empty-reply")
+
+
 # ---------------------------------------------------------------------------
 # 降级链与 pi_status
 # ---------------------------------------------------------------------------
@@ -137,6 +147,41 @@ def test_pi_status_api_exposes_bridge_fields(client: TestClient):
     assert isinstance(d["bridge_ready"], bool)
 
 
+def test_run_bridge_injects_agent_config_env(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class FakeProc:
+        returncode = 0
+        stdout = '{"type":"ready","model":"deepseek/deepseek-chat"}\n{"type":"done","reply":"ok"}\n'
+        stderr = ""
+
+    def fake_run(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return FakeProc()
+
+    monkeypatch.setattr(
+        pr,
+        "_agent_cfg",
+        lambda: {
+            "pi": {"timeout_sec": 123, "bridge_model": "deepseek/deepseek-chat"},
+            "llm": {"base_url": "https://api.deepseek.com", "timeout_sec": 45},
+        },
+    )
+    monkeypatch.setattr("digital_marketing.agent.llm_client.get_llm_api_key", lambda: "sk-unit-test")
+    monkeypatch.setattr(pr.subprocess, "run", fake_run)
+
+    events = pr._run_bridge("数据规模", {})
+
+    env = captured["kwargs"]["env"]
+    assert captured["kwargs"]["timeout"] == 123
+    assert env["PI_BRIDGE_MODEL"] == "deepseek/deepseek-chat"
+    assert env["DEEPSEEK_API_KEY"] == "sk-unit-test"
+    assert env["DEEPSEEK_BASE_URL"] == "https://api.deepseek.com"
+    assert env["OPENAI_BASE_URL"] == "https://api.deepseek.com"
+    assert [e["type"] for e in events] == ["ready", "done"]
+
+
 def test_run_pi_chat_fallback_when_bridge_not_ready(monkeypatch, tmp_path):
     """桥接未就绪 → 降级 local，pi_fallback=True + open_questions 中文原因（契约不变）。"""
     monkeypatch.setattr(pr, "_bridge_ready", lambda: (False, "测试：桥接未就绪"))
@@ -146,6 +191,10 @@ def test_run_pi_chat_fallback_when_bridge_not_ready(monkeypatch, tmp_path):
                  "default_runtime": "pi", "skills": [], "skills_detail": [],
                  "sessions_count": 0, "valid_prefix": True, "executable": "x",
                  "bridge_ready": False, "bridge_note": "测试"},
+    )
+    monkeypatch.setattr(
+        "digital_marketing.agent.llm_client.chat_completion",
+        lambda messages, **kwargs: {"reply": "真实 LLM mock：桥接未就绪降级。", "model": "deepseek-chat"},
     )
     result = pr.run_pi_chat("数据规模多少", session_id="t-fallback", request_id="req-fb")
     assert result["pi_fallback"] is True
@@ -190,6 +239,10 @@ def test_run_pi_chat_fallback_on_bridge_error(monkeypatch):
         raise PiBridgeError("测试：桥接崩溃")
 
     monkeypatch.setattr(pr, "_run_bridge", boom)
+    monkeypatch.setattr(
+        "digital_marketing.agent.llm_client.chat_completion",
+        lambda messages, **kwargs: {"reply": "真实 LLM mock：桥接失败降级。", "model": "deepseek-chat"},
+    )
     result = pr.run_pi_chat("数据规模", session_id="t-bridge-err", request_id="req-err")
     assert result["pi_fallback"] is True
     assert any("桥接崩溃" in q for q in result["open_questions"])

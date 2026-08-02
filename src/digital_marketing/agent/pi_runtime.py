@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from digital_marketing.agent import audit, grounding, skills
-from digital_marketing.agent.local_runtime import persist_turn, run_local_chat
+from digital_marketing.agent.local_runtime import EventSink, persist_turn, run_local_chat
 from digital_marketing.core.paths import project_root, resolve_under_root
 
 
@@ -158,7 +158,13 @@ def pi_status() -> dict[str, Any]:
     }
 
 
-def run_pi_chat(message: str, *, session_id: str, request_id: str) -> dict[str, Any]:
+def run_pi_chat(
+    message: str,
+    *,
+    session_id: str,
+    request_id: str,
+    on_event: EventSink | None = None,
+) -> dict[str, Any]:
     """Pi 编排入口（service.chat 分发至此）。
 
     stub/未安装/桥接失败 → 降级 local 并显式标注（pi_fallback + open_questions）。
@@ -169,45 +175,112 @@ def run_pi_chat(message: str, *, session_id: str, request_id: str) -> dict[str, 
     if not installed_real:
         reason = status.get("fallback_reason") or status.get("message") or "Pi 不可用"
         return _fallback_local(message, session_id=session_id, request_id=request_id,
-                               status=status, reason=str(reason), t0=t0)
+                               status=status, reason=str(reason), t0=t0, on_event=on_event)
 
     bridge_ok, bridge_note = _bridge_ready()
     if not bridge_ok:
         return _fallback_local(message, session_id=session_id, request_id=request_id,
-                               status=status, reason=f"桥接未就绪：{bridge_note}", t0=t0)
+                               status=status, reason=f"桥接未就绪：{bridge_note}", t0=t0, on_event=on_event)
 
+    if on_event is not None:
+        on_event("status", {"phase": "bridge", "message": "正在连接项目内 Pi bridge"})
     try:
         events = _run_bridge(message, status)
     except (PiBridgeError, subprocess.TimeoutExpired, OSError) as e:
         return _fallback_local(message, session_id=session_id, request_id=request_id,
-                               status=status, reason=f"Pi 桥接失败已降级: {e}", t0=t0)
+                               status=status, reason=f"Pi 桥接失败已降级: {e}", t0=t0, on_event=on_event)
+
+    _forward_bridge_events(events, on_event)
 
     try:
         payload = _assemble_from_events(events, session_id=session_id)
     except PiBridgeError as e:
         return _fallback_local(message, session_id=session_id, request_id=request_id,
-                               status=status, reason=f"Pi 事件解析失败已降级: {e}", t0=t0)
+                               status=status, reason=f"Pi 事件解析失败已降级: {e}", t0=t0, on_event=on_event)
 
     payload["pi_status"] = status
     return persist_turn(
         payload, request_id=request_id, session_id=session_id, message=message,
-        tool_trace=payload.get("tool_trace") or [], t0=t0, runtime="pi",
+        tool_trace=payload.get("tool_trace") or [], t0=t0, runtime="pi", on_event=on_event,
     )
 
 
 def _fallback_local(
     message: str, *, session_id: str, request_id: str,
-    status: dict[str, Any], reason: str, t0: float,
+    status: dict[str, Any], reason: str, t0: float, on_event: EventSink | None = None,
 ) -> dict[str, Any]:
     """降级 local（保留历史契约：pi_fallback + open_questions 中文原因）。"""
-    result = run_local_chat(message, session_id=session_id, runtime="local", request_id=request_id)
+    buffered_events: list[tuple[str, dict[str, Any]]] = []
+
+    def buffer_event(event: str, data: dict[str, Any]) -> None:
+        buffered_events.append((event, data))
+
+    result = run_local_chat(
+        message,
+        session_id=session_id,
+        runtime="local",
+        request_id=request_id,
+        on_event=buffer_event if on_event is not None else None,
+    )
     hint = status.get("hint") or ""
     result.setdefault("open_questions", []).append(
         f"默认 runtime=pi，但{reason}，本轮已降级 {result.get('runtime')}。{hint}"
     )
     result["pi_status"] = status
     result["pi_fallback"] = True
+    _replace_last_assistant_payload(session_id, result)
+    if on_event is not None:
+        for event, data in buffered_events:
+            if event not in {"done", "open_questions"}:
+                on_event(event, data)
+        on_event("open_questions", {"items": result.get("open_questions") or []})
+        on_event(
+            "done",
+            {
+                "session_id": session_id,
+                "latency_ms": result.get("latency_ms") or round(audit.now_ms() - t0, 2),
+                "runtime": result.get("runtime") or "template",
+                "pi_fallback": True,
+                "pi_status": status,
+                "llm_model": result.get("llm_model"),
+            },
+        )
     return result
+
+
+def _replace_last_assistant_payload(session_id: str, payload: dict[str, Any]) -> None:
+    """降级标注发生在 local 落盘后，这里回写最后一条 assistant。"""
+    prev = audit.load_session(session_id)
+    if not prev:
+        return
+    messages = prev.get("messages") or []
+    for item in reversed(messages):
+        if item.get("role") == "assistant":
+            item["content"] = payload
+            audit.save_session(session_id, prev)
+            return
+
+
+def _forward_bridge_events(events: list[dict[str, Any]], on_event: EventSink | None) -> None:
+    """转发桥接中可安全展示的工具事件，契约段由宿主落盘后统一发送。"""
+    if on_event is None:
+        return
+    for event in events:
+        etype = event.get("type")
+        if etype == "tool_start":
+            on_event("tool_start", {"tool": event.get("tool"), "args": event.get("args") or {}})
+        elif etype == "tool_end":
+            payload = {
+                "tool": event.get("tool"),
+                "args": event.get("args") or {},
+                "ok": bool(event.get("ok")),
+                "result": event.get("result") if event.get("ok") else None,
+                "error": event.get("error"),
+                "duration_ms": event.get("duration_ms"),
+            }
+            on_event("tool_end", payload)
+            if payload["tool"] == "render_chart" and payload["ok"] and isinstance(payload["result"], dict):
+                on_event("chart", {"spec": payload["result"]})
 
 
 def _run_bridge(message: str, status: dict[str, Any]) -> list[dict[str, Any]]:
@@ -215,7 +288,11 @@ def _run_bridge(message: str, status: dict[str, Any]) -> list[dict[str, Any]]:
     from digital_marketing.core.config import get_settings
 
     cfg = _agent_cfg()
-    timeout_sec = int((cfg.get("pi") or {}).get("timeout_sec") or 180)
+    pi_cfg = cfg.get("pi") or {}
+    llm_cfg = cfg.get("llm") or {}
+    timeout_sec = int(pi_cfg.get("timeout_sec") or 180)
+    bridge_model = str(pi_cfg.get("bridge_model") or "deepseek/deepseek-chat")
+    base_url = str(llm_cfg.get("base_url") or "").strip().rstrip("/")
     api_base = f"http://127.0.0.1:9800{get_settings().api_prefix}"
     request = json.dumps(
         {
@@ -225,11 +302,22 @@ def _run_bridge(message: str, status: dict[str, Any]) -> list[dict[str, Any]]:
         },
         ensure_ascii=False,
     )
+    from digital_marketing.agent.llm_client import get_llm_api_key
+
     env = {
         **os.environ,
         "PI_SKIP_VERSION_CHECK": "1",
         "PI_TELEMETRY": "0",
+        "PI_BRIDGE_MODEL": bridge_model,
+        "PI_BRIDGE_TIMEOUT_SEC": str(timeout_sec),
     }
+    api_key = get_llm_api_key()
+    if api_key:
+        env["DEEPSEEK_API_KEY"] = api_key
+        env.setdefault("OPENAI_API_KEY", api_key)
+    if base_url:
+        env["DEEPSEEK_BASE_URL"] = base_url
+        env["OPENAI_BASE_URL"] = base_url
     proc = subprocess.run(
         ["node", str(_bridge_script())],
         input=request,
@@ -266,6 +354,7 @@ def _assemble_from_events(events: list[dict[str, Any]], *, session_id: str) -> d
     # tool_start 的 args 按工具名排队，与 tool_end 顺序配对
     pending_args: dict[str, list[dict[str, Any]]] = {}
     reply = ""
+    model_name = None
     done = False
 
     for e in events:
@@ -285,10 +374,13 @@ def _assemble_from_events(events: list[dict[str, Any]], *, session_id: str) -> d
             facts.extend(grounding.facts_from_tool(name, {"ok": ok, "result": result, "error": error}))
         elif etype == "done":
             reply = str(e.get("reply") or "")
+            model_name = e.get("model")
             done = True
 
     if not done:
         raise PiBridgeError("桥接事件流缺少 done 事件")
+    if not reply.strip():
+        raise PiBridgeError("桥接 done 事件缺少真实回复文本")
     if not tool_trace:
         raise PiBridgeError("Pi 未调用任何宿主工具（无可接地数字）")
 
@@ -312,7 +404,7 @@ def _assemble_from_events(events: list[dict[str, Any]], *, session_id: str) -> d
     if not any(t.get("ok") for t in tool_trace):
         open_q.append("工具全部失败，请检查是否已运行 run_all 生成产物。")
 
-    return grounding.build_structured_reply(
+    payload = grounding.build_structured_reply(
         runtime="pi",
         session_id=session_id,
         tool_trace=tool_trace,
@@ -320,8 +412,10 @@ def _assemble_from_events(events: list[dict[str, Any]], *, session_id: str) -> d
         inferences=inferences,
         recommendations=recommendations,
         open_questions=open_q,
-        reply=reply or None,
+        reply=reply,
     )
+    payload["llm_model"] = model_name
+    return payload
 
 
 # 兼容别名（旧调用方与测试：from ...pi_runtime import try_pi_or_fallback）

@@ -6,10 +6,12 @@ import {
   type SegmentCompareData, type SegmentProjectionData, type SegmentsData,
 } from '../api/segments'
 import EmptyState from '../components/EmptyState.vue'
+import DisclaimerBanner from '../components/DisclaimerBanner.vue'
 import ErrorState from '../components/ErrorState.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
 import ScatterPcaChart from '../components/ScatterPcaChart.vue'
-import { formatInt, formatPercent } from '../utils/format'
+import SegmentCard from '../components/SegmentCard.vue'
+import { formatInt } from '../utils/format'
 
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -75,9 +77,7 @@ onMounted(load)
       </template>
     </PageHeaderBar>
 
-    <p class="disclaimer">
-      {{ data?.disclaimer || '分群用于探索画像，簇间转化率差异不等于因果效应。' }}
-    </p>
+    <DisclaimerBanner :content="data?.disclaimer || '分群用于探索画像，簇间转化率差异不等于因果效应。'" />
 
     <ErrorState v-if="error && !loading" :message="error" @retry="load" />
 
@@ -101,32 +101,15 @@ onMounted(load)
             稳定性 ARI {{ stabilityBadge.ari_mean.toFixed(3) }}±{{ stabilityBadge.ari_std.toFixed(3) }}
           </ElTag>
         </template>
-        <ElTable :data="data.clusters" size="small" stripe>
-          <ElTableColumn prop="cluster_id" label="簇" width="70" />
-          <ElTableColumn label="自动画像名" min-width="170">
-            <template #default="{ row }">
-              {{ autoNames[String(row.cluster_id)] || '—' }}
-            </template>
-          </ElTableColumn>
-          <ElTableColumn label="人数" width="90">
-            <template #default="{ row }">{{ formatInt(row.n) }}</template>
-          </ElTableColumn>
-          <ElTableColumn label="占比" width="90">
-            <template #default="{ row }">{{ formatPercent(row.share) }}</template>
-          </ElTableColumn>
-          <ElTableColumn label="事后转化率" width="110">
-            <template #default="{ row }">{{ formatPercent(row.conversion_rate) }}</template>
-          </ElTableColumn>
-          <ElTableColumn label="画像均值（节选）">
-            <template #default="{ row }">
-              <span class="mono muted">
-                Age={{ row.profile_means?.Age?.toFixed?.(1) ?? '—' }},
-                AdSpend={{ row.profile_means?.AdSpend?.toFixed?.(0) ?? '—' }},
-                EmailOpens={{ row.profile_means?.EmailOpens?.toFixed?.(1) ?? '—' }}
-              </span>
-            </template>
-          </ElTableColumn>
-        </ElTable>
+        <div class="segment-grid">
+          <SegmentCard
+            v-for="cluster in data.clusters"
+            :key="cluster.cluster_id"
+            :cluster="cluster"
+            :name="autoNames[String(cluster.cluster_id)]"
+            :stability="stabilityBadge?.ari_mean"
+          />
+        </div>
       </ElCard>
 
       <ElCard v-if="projection?.points?.length" shadow="never" class="section-card">
@@ -204,8 +187,9 @@ onMounted(load)
 </template>
 
 <style scoped>
+.segment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: var(--space-3); }
 .err-text {
   color: var(--color-danger);
-  font-size: 12px;
+  font-size: var(--font-size-xs);
 }
 </style>

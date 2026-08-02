@@ -3,8 +3,8 @@
 runtime: pi  # pi | local | template
 
 llm:
-  # Key 仅环境变量，例如 DIGITAL_LLM_API_KEY / OPENAI_API_KEY
-  base_url: ""  # 空则 template 模式
+  # Key 仅环境变量或本地 .env，例如 DEEPSEEK_API_KEY / OPENAI_API_KEY
+  base_url: ""  # 空则使用 provider 默认地址
   model: deepseek-chat
   timeout_sec: 60
 
@@ -15,6 +15,7 @@ pi:
   skills_dir: src/digital_marketing/agent/skills
   session_dir: outputs/agent_sessions
   timeout_sec: 180
+  bridge_model: deepseek/deepseek-chat
 
 audit:
   log_dir: outputs/agent_logs

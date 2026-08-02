@@ -1,21 +1,33 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   ElButton, ElCard, ElDescriptions, ElDescriptionsItem, ElInput, ElSpace,
-  ElTable, ElTableColumn, ElTag,
+  ElMessage, ElTable, ElTableColumn, ElTag,
 } from 'element-plus'
 import {
-  fetchAgentSession, fetchAuditRecent, fetchPiStatus, generateReport,
-  type AuditRow, type PiStatusData, type ReportData,
+  fetchAgentSession, fetchAuditRecent, fetchPiConfig, fetchPiModels, generateReport, updatePiConfig,
+  type AuditRow, type PiAgentConfigData, type PiAgentConfigUpdate, type PiModelItemData, type PiStatusData, type ReportData,
 } from '../api/agent'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
+import Icon from '../components/Icon.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
+import PiAgentConfigCard from '../components/PiAgentConfigCard.vue'
 import RuntimeBadge from '../components/RuntimeBadge.vue'
+import StatStrip from '../components/StatStrip.vue'
 import ToolTracePanel from '../components/ToolTracePanel.vue'
+
+type StatTone = 'primary' | 'success' | 'warning' | 'danger' | 'info'
+type PiSummaryItem = { label: string; value: string; hint?: string; icon?: string; tone?: StatTone }
 
 const loading = ref(false)
 const error = ref<string | null>(null)
+const configError = ref<string | null>(null)
+const configSaving = ref(false)
+const config = ref<PiAgentConfigData | null>(null)
+const modelItems = ref<PiModelItemData[]>([])
+const modelsLoading = ref(false)
+const modelsError = ref<string | null>(null)
 const pi = ref<PiStatusData | null>(null)
 const audit = ref<AuditRow[]>([])
 
@@ -30,14 +42,70 @@ const sessionError = ref<string | null>(null)
 async function load() {
   loading.value = true
   error.value = null
+  configError.value = null
   try {
-    const [p, a] = await Promise.all([fetchPiStatus(), fetchAuditRecent(50)])
-    pi.value = p.data
+    const [c, a] = await Promise.all([fetchPiConfig(), fetchAuditRecent(50)])
+    config.value = c.data
+    pi.value = c.data.status
     audit.value = a.data.items
+    if (c.data.config_endpoint_ready === false) {
+      configError.value = '后端尚未加载 /agent/pi/config，当前为只读兼容状态；重启 API 后即可保存配置。'
+      modelItems.value = []
+      modelsError.value = '后端尚未加载 /agent/pi/models。'
+    } else if (c.data.settings.llm.api_key_configured) {
+      await loadModels()
+    } else {
+      modelItems.value = []
+      modelsError.value = '保存 API Key 后可从上游获取模型列表。'
+    }
   } catch (e) {
     error.value = e instanceof Error ? e.message : '加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function saveConfig(payload: PiAgentConfigUpdate) {
+  if (config.value?.config_endpoint_ready === false) {
+    configError.value = '后端尚未加载 /agent/pi/config，当前不能保存；请重启 API 后刷新本页。'
+    return
+  }
+  configSaving.value = true
+  configError.value = null
+  try {
+    const r = await updatePiConfig(payload)
+    config.value = r.data
+    pi.value = r.data.status
+    if (r.data.settings.llm.api_key_configured) {
+      await loadModels()
+    } else {
+      modelItems.value = []
+      modelsError.value = '保存 API Key 后可从上游获取模型列表。'
+    }
+    ElMessage.success('PiAgent 配置已保存')
+  } catch (e) {
+    configError.value = e instanceof Error ? e.message : '配置保存失败'
+  } finally {
+    configSaving.value = false
+  }
+}
+
+async function loadModels() {
+  if (config.value?.config_endpoint_ready === false) {
+    modelsError.value = '后端尚未加载 /agent/pi/models；请重启 API 后重试。'
+    return
+  }
+  modelsLoading.value = true
+  modelsError.value = null
+  try {
+    const r = await fetchPiModels()
+    modelItems.value = r.data.models
+    if (!r.data.models.length) modelsError.value = '上游未返回可用模型。'
+  } catch (e) {
+    modelItems.value = []
+    modelsError.value = e instanceof Error ? e.message : '模型列表获取失败'
+  } finally {
+    modelsLoading.value = false
   }
 }
 
@@ -67,13 +135,50 @@ async function replay() {
 }
 
 onMounted(load)
+
+const summaryItems = computed<PiSummaryItem[]>(() => {
+  const st = pi.value
+  const settings = config.value?.settings
+  const installed = st?.installed && !st?.is_stub
+  const bridgeReady = Boolean(st?.bridge_ready)
+  return [
+    {
+      label: 'Runtime',
+      value: settings?.runtime || st?.default_runtime || '—',
+      hint: installed ? '项目内 Pi' : (st?.fallback_reason || st?.message || '可降级 local'),
+      icon: 'uil:processor',
+      tone: installed ? 'success' : 'warning',
+    },
+    {
+      label: 'Bridge',
+      value: bridgeReady ? 'ready' : 'pending',
+      hint: st?.bridge_note || settings?.pi.bridge_model || 'SDK / node / script',
+      icon: 'uil:bolt-alt',
+      tone: bridgeReady ? 'success' : 'warning',
+    },
+    {
+      label: 'Skills',
+      value: String(st?.skills_detail?.length ?? 0),
+      hint: settings?.pi.skills_dir || 'src/digital_marketing/agent/skills',
+      icon: 'uil:brackets-curly',
+      tone: 'primary',
+    },
+    {
+      label: 'Audit',
+      value: String(audit.value.length),
+      hint: `${st?.sessions_count ?? 0} 个会话`,
+      icon: 'uil:clipboard-notes',
+      tone: 'info',
+    },
+  ]
+})
 </script>
 
 <template>
   <div class="page">
     <PageHeaderBar
       title="Pi 编排中枢"
-      description="Pi 为默认 runtime 的编排中枢：skills 生态、一键报告、审计与会话回放。stub/未安装时明确降级 local。"
+      description="PiAgent 的运行配置、健康诊断、skills、一键报告、会话回放与审计日志。"
     >
       <template #actions>
         <ElButton type="primary" :loading="loading" @click="load">刷新</ElButton>
@@ -82,11 +187,27 @@ onMounted(load)
 
     <ErrorState v-if="error && !loading" :message="error" @retry="load" />
 
+    <StatStrip :items="summaryItems" class="pi-summary" />
+
+    <PiAgentConfigCard
+      :config="config"
+      :loading="loading"
+      :saving="configSaving"
+      :error="configError"
+      :models="modelItems"
+      :models-loading="modelsLoading"
+      :models-error="modelsError"
+      @refresh="load"
+      @refresh-models="loadModels"
+      @save="saveConfig"
+      class="config-section"
+    />
+
     <div class="grid-2">
       <div>
         <ElCard shadow="never" class="section-card">
           <template #header>
-            Runtime 状态
+            Runtime 健康
             <RuntimeBadge
               v-if="pi"
               :runtime="pi.installed && !pi.is_stub ? 'pi' : 'local'"
@@ -95,14 +216,34 @@ onMounted(load)
               class="ml-sm"
             />
           </template>
-          <ElDescriptions v-if="pi" :column="1" size="small" border>
+          <ElDescriptions v-if="pi" :column="1" size="small" border class="runtime-desc">
             <ElDescriptionsItem label="默认 runtime">
               <span class="mono">{{ pi.default_runtime }}</span>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="Bridge Model">
+              <span class="mono">{{ config?.settings.pi.bridge_model || 'deepseek/deepseek-chat' }}</span>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="Base URL">
+              <span class="mono">{{ config?.settings.llm.base_url || '默认 provider 地址' }}</span>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="API Key">
+              <ElTag
+                size="small"
+                :type="config?.settings.llm.api_key_configured ? 'success' : 'info'"
+              >
+                {{ config?.settings.llm.api_key_configured ? config?.settings.llm.api_key_preview : '未配置' }}
+              </ElTag>
             </ElDescriptionsItem>
             <ElDescriptionsItem label="Pi 可执行文件">
               <span class="mono">{{ pi.executable || '未安装' }}</span>
               <ElTag v-if="pi.is_stub" size="small" type="warning">stub 占位</ElTag>
               <ElTag v-else-if="pi.installed" size="small" type="success">真实安装</ElTag>
+            </ElDescriptionsItem>
+            <ElDescriptionsItem label="Pi SDK 桥接">
+              <ElTag size="small" :type="pi.bridge_ready ? 'success' : 'warning'">
+                {{ pi.bridge_ready ? '已就绪' : '未就绪' }}
+              </ElTag>
+              <span v-if="pi.bridge_note" class="muted ml-sm">{{ pi.bridge_note }}</span>
             </ElDescriptionsItem>
             <ElDescriptionsItem v-if="pi.fallback_reason" label="降级原因">
               {{ pi.fallback_reason }}
@@ -124,10 +265,13 @@ onMounted(load)
           <EmptyState
             v-if="!pi?.skills_detail?.length"
             title="未发现 skills"
-            description="skills 目录：agent/skills/*/SKILL.md"
+            description="skills 目录：src/digital_marketing/agent/skills/*/SKILL.md"
           />
           <div v-for="s in pi?.skills_detail ?? []" :key="s.name" class="skill">
-            <div class="skill-name mono">{{ s.name }}</div>
+            <div class="skill-heading">
+              <Icon icon="uil:brackets-curly" size="sm" color="var(--color-primary-600)" />
+              <div class="skill-name mono">{{ s.name }}</div>
+            </div>
             <div class="muted">{{ s.description }}</div>
           </div>
         </ElCard>
@@ -215,11 +359,18 @@ onMounted(load)
 </template>
 
 <style scoped>
+.pi-summary,
+.config-section {
+  margin-bottom: var(--space-4);
+}
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1.2fr;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: start;
+}
+.grid-2 > * {
+  min-width: 0;
 }
 @media (max-width: 1100px) {
   .grid-2 {
@@ -227,42 +378,63 @@ onMounted(load)
   }
 }
 .skill {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-default);
+}
+.skill-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 .skill:last-child {
   border-bottom: none;
 }
 .skill-name {
-  font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 2px;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
 }
 .report-box {
-  margin-top: 12px;
+  margin-top: var(--space-3);
 }
 .digest {
   white-space: pre-wrap;
-  font-family: var(--font-sans);
-  font-size: 12px;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
   background: var(--color-code-bg);
-  padding: 10px;
-  border-radius: 6px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
   max-height: 220px;
   overflow: auto;
 }
 .json {
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-xs);
   background: var(--color-code-bg);
-  padding: 10px;
-  border-radius: 6px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
   overflow: auto;
   max-height: 420px;
-  margin-top: 12px;
+  margin-top: var(--space-3);
 }
 .err-text {
-  color: var(--color-danger);
-  font-size: 13px;
+  color: var(--color-danger-text);
+  font-size: var(--font-size-sm);
+}
+.runtime-desc :deep(.el-descriptions__label) {
+  min-width: 104px;
+  white-space: nowrap;
+}
+.runtime-desc :deep(.el-descriptions__table) {
+  width: 100%;
+  table-layout: fixed;
+}
+.runtime-desc :deep(.el-descriptions__content) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.runtime-desc .mono {
+  white-space: normal;
+  word-break: break-all;
 }
 </style>

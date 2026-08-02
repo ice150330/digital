@@ -238,6 +238,7 @@ outputs/reports/
 outputs/agent_logs/
 outputs/agent_sessions/
 outputs/figures/
+outputs/**/*.png
 !outputs/**/.gitkeep
 tools/pi-cli/node_modules/
 tools/pi-cli/**/node_modules/
