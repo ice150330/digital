@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from digital_marketing.agent import audit, grounding, skills
-from digital_marketing.agent.local_runtime import persist_turn, run_local_chat
+from digital_marketing.agent.local_runtime import EventSink, persist_turn, run_local_chat
 from digital_marketing.core.paths import project_root, resolve_under_root
 
 
@@ -158,7 +158,13 @@ def pi_status() -> dict[str, Any]:
     }
 
 
-def run_pi_chat(message: str, *, session_id: str, request_id: str) -> dict[str, Any]:
+def run_pi_chat(
+    message: str,
+    *,
+    session_id: str,
+    request_id: str,
+    on_event: EventSink | None = None,
+) -> dict[str, Any]:
     """Pi 编排入口（service.chat 分发至此）。
 
     stub/未安装/桥接失败 → 降级 local 并显式标注（pi_fallback + open_questions）。
@@ -169,45 +175,95 @@ def run_pi_chat(message: str, *, session_id: str, request_id: str) -> dict[str, 
     if not installed_real:
         reason = status.get("fallback_reason") or status.get("message") or "Pi 不可用"
         return _fallback_local(message, session_id=session_id, request_id=request_id,
-                               status=status, reason=str(reason), t0=t0)
+                               status=status, reason=str(reason), t0=t0, on_event=on_event)
 
     bridge_ok, bridge_note = _bridge_ready()
     if not bridge_ok:
         return _fallback_local(message, session_id=session_id, request_id=request_id,
-                               status=status, reason=f"桥接未就绪：{bridge_note}", t0=t0)
+                               status=status, reason=f"桥接未就绪：{bridge_note}", t0=t0, on_event=on_event)
 
     try:
         events = _run_bridge(message, status)
     except (PiBridgeError, subprocess.TimeoutExpired, OSError) as e:
         return _fallback_local(message, session_id=session_id, request_id=request_id,
-                               status=status, reason=f"Pi 桥接失败已降级: {e}", t0=t0)
+                               status=status, reason=f"Pi 桥接失败已降级: {e}", t0=t0, on_event=on_event)
+
+    _forward_bridge_events(events, on_event)
 
     try:
         payload = _assemble_from_events(events, session_id=session_id)
     except PiBridgeError as e:
         return _fallback_local(message, session_id=session_id, request_id=request_id,
-                               status=status, reason=f"Pi 事件解析失败已降级: {e}", t0=t0)
+                               status=status, reason=f"Pi 事件解析失败已降级: {e}", t0=t0, on_event=on_event)
 
     payload["pi_status"] = status
     return persist_turn(
         payload, request_id=request_id, session_id=session_id, message=message,
-        tool_trace=payload.get("tool_trace") or [], t0=t0, runtime="pi",
+        tool_trace=payload.get("tool_trace") or [], t0=t0, runtime="pi", on_event=on_event,
     )
 
 
 def _fallback_local(
     message: str, *, session_id: str, request_id: str,
-    status: dict[str, Any], reason: str, t0: float,
+    status: dict[str, Any], reason: str, t0: float, on_event: EventSink | None = None,
 ) -> dict[str, Any]:
     """降级 local（保留历史契约：pi_fallback + open_questions 中文原因）。"""
-    result = run_local_chat(message, session_id=session_id, runtime="local", request_id=request_id)
+    buffered_events: list[tuple[str, dict[str, Any]]] = []
+
+    def buffer_event(event: str, data: dict[str, Any]) -> None:
+        buffered_events.append((event, data))
+
+    result = run_local_chat(
+        message,
+        session_id=session_id,
+        runtime="local",
+        request_id=request_id,
+        on_event=buffer_event if on_event is not None else None,
+    )
     hint = status.get("hint") or ""
     result.setdefault("open_questions", []).append(
         f"默认 runtime=pi，但{reason}，本轮已降级 {result.get('runtime')}。{hint}"
     )
     result["pi_status"] = status
     result["pi_fallback"] = True
+    if on_event is not None:
+        for event, data in buffered_events:
+            if event not in {"done", "open_questions"}:
+                on_event(event, data)
+        on_event("open_questions", {"items": result.get("open_questions") or []})
+        on_event(
+            "done",
+            {
+                "session_id": session_id,
+                "latency_ms": result.get("latency_ms") or round(audit.now_ms() - t0, 2),
+                "runtime": result.get("runtime") or "template",
+                "pi_fallback": True,
+                "pi_status": status,
+            },
+        )
     return result
+
+
+def _forward_bridge_events(events: list[dict[str, Any]], on_event: EventSink | None) -> None:
+    """转发桥接中可安全展示的工具事件，契约段由宿主落盘后统一发送。"""
+    if on_event is None:
+        return
+    for event in events:
+        etype = event.get("type")
+        if etype == "tool_start":
+            on_event("tool_start", {"tool": event.get("tool"), "args": event.get("args") or {}})
+        elif etype == "tool_end":
+            payload = {
+                "tool": event.get("tool"),
+                "args": event.get("args") or {},
+                "ok": bool(event.get("ok")),
+                "result": event.get("result") if event.get("ok") else None,
+                "error": event.get("error"),
+                "duration_ms": event.get("duration_ms"),
+            }
+            on_event("tool_end", payload)
+            if payload["tool"] == "render_chart" and payload["ok"] and isinstance(payload["result"], dict):
+                on_event("chart", {"spec": payload["result"]})
 
 
 def _run_bridge(message: str, status: dict[str, Any]) -> list[dict[str, Any]]:

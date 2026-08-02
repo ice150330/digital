@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from collections.abc import Callable
 from typing import Any
 
 from digital_marketing.agent import audit, grounding
@@ -16,6 +17,19 @@ from digital_marketing.agent.tools import plan_from_message, run_tool
 
 # 历史名别名（旧调用方与测试：from ...local_runtime import plan_tools）
 plan_tools = plan_from_message
+
+EventSink = Callable[[str, dict[str, Any]], None]
+
+
+def _emit(on_event: EventSink | None, event: str, data: dict[str, Any]) -> None:
+    """向流式调用方发送事件；客户端断开不应影响分析结果落盘。"""
+    if on_event is None:
+        return
+    try:
+        on_event(event, data)
+    except Exception:  # noqa: BLE001
+        # SSE 队列关闭、客户端主动停止等情况只影响传输，不回滚工具执行。
+        return
 
 
 def resolve_runtime(requested: str | None = None) -> str:
@@ -38,6 +52,7 @@ def run_local_chat(
     session_id: str | None = None,
     runtime: str | None = None,
     request_id: str = "unknown",
+    on_event: EventSink | None = None,
 ) -> dict[str, Any]:
     """执行一轮对话：规划工具 → 执行 → 契约化回复。"""
     t0 = audit.now_ms()
@@ -51,7 +66,10 @@ def run_local_chat(
     tool_trace: list[dict[str, Any]] = []
     facts: list[str] = []
     for name, kwargs in plans:
+        _emit(on_event, "tool_start", {"tool": name, "args": kwargs})
+        tool_started = audit.now_ms()
         result = run_tool(name, **kwargs)
+        duration_ms = round(audit.now_ms() - tool_started, 2)
         tool_trace.append(
             {
                 "tool": name,
@@ -61,6 +79,20 @@ def run_local_chat(
                 "result": result.get("result") if result.get("ok") else None,
             }
         )
+        _emit(
+            on_event,
+            "tool_end",
+            {
+                "tool": name,
+                "args": kwargs,
+                "ok": bool(result.get("ok")),
+                "result": result.get("result") if result.get("ok") else None,
+                "error": result.get("error"),
+                "duration_ms": duration_ms,
+            },
+        )
+        if name == "render_chart" and result.get("ok") and isinstance(result.get("result"), dict):
+            _emit(on_event, "chart", {"spec": result["result"]})
         facts.extend(grounding.facts_from_tool(name, result))
 
     inferences = [
@@ -97,7 +129,7 @@ def run_local_chat(
     )
     return persist_turn(
         payload, request_id=request_id, session_id=sid, message=message,
-        tool_trace=tool_trace, t0=t0, runtime=rt,
+        tool_trace=tool_trace, t0=t0, runtime=rt, on_event=on_event,
     )
 
 
@@ -110,6 +142,7 @@ def persist_turn(
     tool_trace: list[dict[str, Any]],
     t0: float,
     runtime: str,
+    on_event: EventSink | None = None,
 ) -> dict[str, Any]:
     """审计落盘 + 会话续写 + latency 回填（local 与 pi 两条路径共用）。"""
     latency = audit.now_ms() - t0
@@ -131,4 +164,26 @@ def persist_turn(
     prev["runtime"] = runtime
     audit.save_session(session_id, prev)
     payload["latency_ms"] = round(latency, 2)
+    for event_name, items in (
+        ("facts", payload.get("observed_facts") or []),
+        ("inferences", payload.get("inferences") or []),
+        ("recommendations", payload.get("recommendations") or []),
+        ("open_questions", payload.get("open_questions") or []),
+    ):
+        if items:
+            _emit(on_event, event_name, {"items": items})
+    reply = str(payload.get("reply") or "")
+    for start in range(0, len(reply), 96):
+        _emit(on_event, "text", {"delta": reply[start : start + 96]})
+    _emit(
+        on_event,
+        "done",
+        {
+            "session_id": session_id,
+            "latency_ms": payload["latency_ms"],
+            "runtime": runtime,
+            "pi_fallback": bool(payload.get("pi_fallback")),
+            "pi_status": payload.get("pi_status"),
+        },
+    )
     return payload

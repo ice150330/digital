@@ -25,6 +25,8 @@ REQUIRED_PATHS = {
     "/api/v1/segments/assign",
     "/api/v1/rules",
     "/api/v1/agent/chat",
+    "/api/v1/agent/chat/stream",
+    "/api/v1/agent/sessions",
     "/api/v1/agent/pi/status",
     "/api/v1/agent/runtime",
 }

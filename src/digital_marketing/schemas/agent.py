@@ -27,6 +27,27 @@ class ChatData(BaseModel):
     pi_fallback: bool = Field(default=False, description="默认 runtime=pi 但降级 local/template 时为 True")
 
 
+class SessionSummaryData(BaseModel):
+    session_id: str
+    last_user_message: str = ""
+    created_at: str
+    updated_at: str
+    runtime: str
+    tool_count: int = 0
+    message_count: int = 0
+
+
+class SessionListData(BaseModel):
+    items: list[SessionSummaryData]
+    n: int
+
+
+class SessionDeleteData(BaseModel):
+    session_id: str
+    deleted: bool
+    message: str
+
+
 class RuntimeRequest(BaseModel):
     runtime: str
 
