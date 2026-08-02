@@ -4,7 +4,7 @@
 > **不在本文范围：** 系统架构、数据/ML、FastAPI、Agent/Pi 后端逻辑，统一见 `AGENTS.md`。
 > **配套文件：** 范围见 `docs/plans/`；变更见 `CHANGE.md`；视觉参考库见 `pen/ui.pen`。
 > **令牌源：** `docs/plans/Design Tokens.md` v2.0；运行时实现为 `frontend/src/styles/tokens.css`。
-> **版本：** v0.8.0（2026-08-02）— Halo 浅色圆角工作台、`/screen` 回归 AppLayout、中央转化星图与 `pen/ui.pen` v2 重构。
+> **版本：** v0.8.1（2026-08-02）— Halo 浅色圆角工作台、`/screen` 首页总览大屏回归 AppLayout、中央渠道转化桑基主视觉与 `pen/ui.pen` v2 重构。
 
 ---
 
@@ -38,7 +38,7 @@ digital 前端是答辩可演示的数据分析工作台，风格定调为 **Hal
 3. 客户页支持单客预测、SHAP 解释和反事实敏感性分析。
 4. 分群、规则、模拟页承接数据挖掘结论，但不宣称因果收益。
 5. Agent 页展示五段契约、tool_trace、会话和内联 chart-spec 图表。
-6. `/screen` 作为开场全景：一个重点“唬人”的中央转化星图在视觉中心，外围一圈小图标徽章串起数据、模型、解释、分群、规则、预算、Agent。
+6. `/screen` 作为开场全景：一个重点“唬人”的中央渠道转化桑基图在视觉中心，外围一圈较小图表串起转化、渠道、质量、阶段、划分和默认产物。
 
 ---
 
@@ -64,7 +64,7 @@ digital 前端是答辩可演示的数据分析工作台，风格定调为 **Hal
 
 | 路由 | 名称 | 主要内容 |
 |------|------|----------|
-| `/screen` | 总览大屏 | AppLayout 内的中央转化星图、外围徽章、右侧洞察、底部指标条 |
+| `/screen` | 总览大屏 | AppLayout 内的中央渠道转化桑基图、外围小图、右侧洞察、底部指标条 |
 | `/` | 总览 Dashboard | KPI、渠道、转化分布、质量问题、数据概况 |
 | `/models` | 模型实验室 | E0–E8、PR/ROC、校准、混淆矩阵、lift、阈值成本 |
 | `/customers` | 客户洞察 | 单客预测、SHAP、反事实敏感性分析 |
@@ -84,7 +84,19 @@ AppLayout
 └─ Main：PageHeaderBar + 内容区（max 1440px，padding 24px）
 ```
 
-`/screen` 只改变内容区构图，不绕开 header/sidebar。
+`/screen` 只改变内容区构图，不绕开 header/sidebar；≤520px 时侧栏暂隐，主内容占满手机视口，避免总览大屏被折叠菜单挤压。
+
+---
+
+### 3.1 总览大屏主视觉
+
+`/screen` 的主视觉采用“中心大桑基图 + 外圈小图”：
+
+- 中心：`ScreenSankeyOrbit` 使用 ECharts `sankey`，表达“全量样本 → 渠道 → 转化/未转化”的渠道转化分布。
+- 外圈：较小图表围绕中心，包括转化环、渠道强度条、横截面阶段条、质量告警、训练/验证/测试划分和默认 run 状态。
+- 数据源：`/data/overview`、`/data/dashboard`、`/health`；桑基 link 值只能由后端返回的渠道样本量和转化率计算。
+- 口径：`dashboard.caliber` 原样展示；横截面阶段小图不得描述成真实用户逐步流失。
+- 响应式：窄屏下中心图与小图改成单列/双列流式排列；≤520px 隐藏侧栏，桑基图切换为纵向紧凑布局，不能相互遮挡或横向溢出。
 
 ---
 
@@ -94,9 +106,9 @@ AppLayout
 
 `/screen` 第一屏必须以中央大图表为主视觉：
 
-- 主体：`BaseChart` 渲染 ECharts `graph`，名称为“中央转化星图”。
-- 中心：一个大节点表达“转化预测中枢”。
-- 外圈：至少 8 个小徽章，当前实现为 10 个：样本量、转化占比、强渠道、质量问题、PR-AUC、Top SHAP、主簇、Top 规则、推荐触达、Pi 状态。
+- 主体：`ScreenSankeyOrbit` 渲染 ECharts `sankey`，名称为“渠道转化桑基大屏”。
+- 中心：桌面桑基主图表达“全量样本 → 渠道 → 转化/未转化”；手机端保持同一数据，但改为纵向紧凑桑基。
+- 外圈：至少 6 个小图表或数据微卡，当前实现为转化环、渠道强度、横截面阶段、质量告警、训练划分、默认产物。
 - 右侧：洞察栏，承载默认 run、最强渠道、分群、预算、Pi 这类可讲述摘要。
 - 底部：指标条，承接口径说明和关键数值。
 
@@ -144,7 +156,7 @@ AppLayout
 
 | Token | 值 | 用途 |
 |-------|----|------|
-| `--color-primary-500` | `#5749f4` | 主按钮、激活态、中央星图主节点 |
+| `--color-primary-500` | `#5749f4` | 主按钮、激活态、桑基主节点 |
 | `--color-secondary-500` | `#14b8a6` | 辅助强调、图表第二色 |
 | `--color-gray-50` | `#fafafb` | 弱背景、tile |
 | `--color-gray-100` | `#f5f5f5` | 次级背景 |
@@ -221,7 +233,7 @@ AppLayout
 2. 图表色、轴线、tooltip 文本色从 `chartTheme.ts` 获取。
 3. 长类目优先旋转、滚动或截断，不让文字互相遮挡。
 4. PR/ROC、lift、阈值成本、SHAP、PCA 等业务图表必须显示口径或解释限制。
-5. 大屏中央星图使用 ECharts `GraphChart`，外圈业务图标由页面 DOM 负责，避免图表和导航逻辑混在一起。
+5. 大屏中央主图使用 ECharts `SankeyChart`，外围小图由页面 DOM 与轻量 CSS 图形负责，避免图表和导航逻辑混在一起。
 
 ---
 
@@ -272,7 +284,7 @@ AppLayout
 □ /screen 仍在 AppLayout 内，路由 meta 不含 fullscreen
 □ 没有 data-theme="screen"、chartColors('screen')、axisTheme('screen')
 □ 默认浅色，页面背景不是独立暗色大屏
-□ 中央转化星图为首屏视觉中心，外围至少 8 个业务徽章
+□ 中央渠道转化桑基图为首屏视觉中心，外围至少 6 个小图或业务微卡
 □ 所有业务数字来自 API，接口失败只降级不造假
 □ tokens.css、Design Tokens.md、DESIGN.md、ui.pen 同步
 □ npm run build 通过

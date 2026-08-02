@@ -164,6 +164,8 @@ defineExpose({ refreshHealth, health })
   flex: 1;
   display: flex;
   min-height: 0;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 .sider {
   width: var(--layout-sidebar-width);
@@ -284,8 +286,24 @@ defineExpose({ refreshHealth, health })
     min-width: 0;
   }
   .main {
+    width: calc(100vw - var(--layout-sidebar-collapsed));
+    max-width: calc(100vw - var(--layout-sidebar-collapsed));
+    flex: 0 0 calc(100vw - var(--layout-sidebar-collapsed));
     padding: var(--space-3);
     overflow-x: hidden;
+  }
+}
+@media (max-width: 520px) {
+  .header-right {
+    display: none;
+  }
+  .sider {
+    display: none;
+  }
+  .main {
+    width: 100vw;
+    max-width: 100vw;
+    flex-basis: 100vw;
   }
 }
 @media (prefers-reduced-motion: reduce) {

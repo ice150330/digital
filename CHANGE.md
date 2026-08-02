@@ -26,6 +26,21 @@
 
 ## 变更日志
 
+## 2026-08-02 — 总览大屏改为渠道转化桑基主视觉
+
+- **类型：** design / feat
+- **范围：** `frontend/src/views/ScreenView.vue`、`frontend/src/components/ScreenSankeyOrbit.vue`、`frontend/src/layouts/AppLayout.vue`、`frontend/src/styles/screen.css`、`frontend/src/utils/echarts.ts`、`DESIGN.md`
+- **摘要：**
+  - `/screen` 总览大屏从旧中央星图改为“中心大桑基图 + 外圈小图”的 Halo 浅色大屏构图
+  - 新增 `ScreenSankeyOrbit`：中心桑基图展示“全量样本 → 渠道 → 转化/未转化”，外圈小图展示转化环、渠道强度、横截面阶段、质量告警、训练划分与默认 run
+  - ECharts 单一注册点补充 `SankeyChart`，继续经 `BaseChart` 生命周期封装渲染
+  - 390px 手机宽度下隐藏侧栏并让桑基主图切换为纵向紧凑布局，避免总览大屏被工作台侧栏挤压
+  - `DESIGN.md` 补充总览大屏主视觉规范，强调 `dashboard.caliber` 原样展示，横截面阶段不得描述成真实流失路径
+- **原因：** 用户要求“将首页的大拼改为一个桑基图，并用一些较小的图表围着一圈”。
+- **影响：** 总览大屏主视觉更集中、更适合答辩讲述，同时继续保持数据来自后端 API。
+- **破坏性：** 无
+- **验证：** `cd frontend; npm run build` 通过（仅 Vite chunk >500 kB 非阻塞警告）；`git diff --check` 无空白错误（仅工作区 LF→CRLF 提示）；Chrome headless 截图检查 `/screen` 桌面 1440px 与手机 390px。
+
 ## 2026-08-02 — Halo 浅色大屏与视觉系统第一批全量重构
 
 - **类型：** design / refactor / docs

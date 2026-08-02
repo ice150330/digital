@@ -10,9 +10,17 @@
 .screen-canvas {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: 1fr;
   gap: var(--space-6);
   align-items: stretch;
+}
+
+.screen .page-header-copy {
+  flex: 1 1 min(640px, 100%);
+}
+
+.screen .page-header .desc {
+  overflow-wrap: anywhere;
 }
 
 .orbit-panel,
@@ -20,6 +28,19 @@
 .metric-tile {
   border: 1px solid var(--border-default);
   background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.screen-loading {
+  display: inline-flex;
+  min-height: 360px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-panel);
+  background: var(--bg-card);
+  color: var(--text-secondary);
   box-shadow: var(--shadow-sm);
 }
 
@@ -189,9 +210,9 @@
 }
 
 .insight-rail {
-  display: flex;
+  display: grid;
   min-width: 0;
-  flex-direction: column;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
 }
 
@@ -279,6 +300,11 @@
     overflow-x: hidden;
   }
 
+  .screen .page-header-copy,
+  .screen .page-header .actions {
+    width: 100%;
+  }
+
   .orbit-panel {
     border-radius: var(--radius-card);
   }
@@ -334,6 +360,11 @@
 }
 
 @media (max-width: 520px) {
+  .screen.page {
+    width: 100%;
+    max-width: 100%;
+  }
+
   .orbit-field {
     grid-template-columns: 1fr;
   }
