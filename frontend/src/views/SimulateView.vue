@@ -5,6 +5,7 @@ import {
 } from 'element-plus'
 import { simulateBudget, type BudgetSimulateData } from '../api/simulate'
 import BudgetCurveChart from '../components/BudgetCurveChart.vue'
+import DisclaimerBanner from '../components/DisclaimerBanner.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
 import KpiCard from '../components/KpiCard.vue'
@@ -57,9 +58,7 @@ onMounted(() => run())
       </template>
     </PageHeaderBar>
 
-    <p class="disclaimer">
-      {{ data?.disclaimer || '期望值为排序参考，非因果收益承诺；单客价值与触达成本为业务假设参数。' }}
-    </p>
+    <DisclaimerBanner :content="data?.disclaimer || '期望值为排序参考，非因果收益承诺；单客价值与触达成本为业务假设参数。'" />
 
     <ElCard shadow="never" class="section-card">
       <template #header>参数</template>
@@ -143,8 +142,8 @@ onMounted(() => run())
 .kpis {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 @media (max-width: 992px) {
   .kpis {
@@ -154,6 +153,6 @@ onMounted(() => run())
 .param {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 </style>

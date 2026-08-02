@@ -46,10 +46,10 @@ const option = computed(() => {
 <template>
   <div>
     <div v-if="title" class="title">{{ title }}</div>
-    <BaseChart :option="option" height="320px" />
+    <BaseChart :option="option" height="var(--chart-height-lg)" />
   </div>
 </template>
 
 <style scoped>
-.title { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.title { margin-bottom: var(--space-2); font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); }
 </style>

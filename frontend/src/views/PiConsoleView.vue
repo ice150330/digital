@@ -10,6 +10,7 @@ import {
 } from '../api/agent'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
+import Icon from '../components/Icon.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
 import RuntimeBadge from '../components/RuntimeBadge.vue'
 import ToolTracePanel from '../components/ToolTracePanel.vue'
@@ -104,6 +105,12 @@ onMounted(load)
               <ElTag v-if="pi.is_stub" size="small" type="warning">stub 占位</ElTag>
               <ElTag v-else-if="pi.installed" size="small" type="success">真实安装</ElTag>
             </ElDescriptionsItem>
+            <ElDescriptionsItem label="Pi SDK 桥接">
+              <ElTag size="small" :type="pi.bridge_ready ? 'success' : 'warning'">
+                {{ pi.bridge_ready ? '已就绪' : '未就绪' }}
+              </ElTag>
+              <span v-if="pi.bridge_note" class="muted ml-sm">{{ pi.bridge_note }}</span>
+            </ElDescriptionsItem>
             <ElDescriptionsItem v-if="pi.fallback_reason" label="降级原因">
               {{ pi.fallback_reason }}
             </ElDescriptionsItem>
@@ -127,7 +134,10 @@ onMounted(load)
             description="skills 目录：agent/skills/*/SKILL.md"
           />
           <div v-for="s in pi?.skills_detail ?? []" :key="s.name" class="skill">
-            <div class="skill-name mono">{{ s.name }}</div>
+            <div class="skill-heading">
+              <Icon icon="uil:brackets-curly" size="sm" color="var(--color-primary-600)" />
+              <div class="skill-name mono">{{ s.name }}</div>
+            </div>
             <div class="muted">{{ s.description }}</div>
           </div>
         </ElCard>
@@ -218,7 +228,7 @@ onMounted(load)
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1.2fr;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: start;
 }
 @media (max-width: 1100px) {
@@ -227,42 +237,47 @@ onMounted(load)
   }
 }
 .skill {
-  padding: 8px 0;
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-default);
+}
+.skill-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 .skill:last-child {
   border-bottom: none;
 }
 .skill-name {
-  font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 2px;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
 }
 .report-box {
-  margin-top: 12px;
+  margin-top: var(--space-3);
 }
 .digest {
   white-space: pre-wrap;
-  font-family: var(--font-sans);
-  font-size: 12px;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
   background: var(--color-code-bg);
-  padding: 10px;
-  border-radius: 6px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
   max-height: 220px;
   overflow: auto;
 }
 .json {
-  font-family: var(--font-mono);
-  font-size: 11px;
+  font-family: var(--font-family-code);
+  font-size: var(--font-size-xs);
   background: var(--color-code-bg);
-  padding: 10px;
-  border-radius: 6px;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
   overflow: auto;
   max-height: 420px;
-  margin-top: 12px;
+  margin-top: var(--space-3);
 }
 .err-text {
-  color: var(--color-danger);
-  font-size: 13px;
+  color: var(--color-danger-text);
+  font-size: var(--font-size-sm);
 }
 </style>

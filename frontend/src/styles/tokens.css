@@ -1,140 +1,194 @@
-/* 设计 token — 对齐 DESIGN.md / pen/ui.pen */
+/* 设计令牌 v2.0：Halo 浅色圆角工作台，与 docs/plans/2026-08-02-Halo风格全量视觉改造计划.md 对齐。 */
 :root {
-  --color-bg: #f5f7fa;
-  --color-surface: #ffffff;
-  --color-border: #e4e7ed;
-  --color-text: #303133;
-  --color-text-secondary: #909399;
-  --color-text-inverse: #ffffff;
-  --color-primary: #409eff;
-  --color-success: #67c23a;
-  --color-warning: #e6a23c;
-  --color-danger: #f56c6c;
-  --color-info: #909399;
-  --color-primary-soft: #ecf5ff;   /* active/选中浅底（侧栏 active、chip） */
-  --color-hover: #f5f7fa;          /* hover 浅底 */
-  --color-code-bg: #f5f7fa;        /* 代码/JSON 块浅底 */
-  --color-warning-soft: #fdf6ec;   /* disclaimer/警示浅底 */
-  --color-warning-soft-border: #faecd8;
-  --color-code-dark-bg: #1e1e1e;   /* 深色代码块（关于页命令块） */
-  --color-code-dark-text: #d4d4d4;
-  --color-shap-pos: #409eff;
-  --color-shap-neg: #f56c6c;
-  --color-chart-1: #409eff;
-  --color-chart-2: #67c23a;
-  --color-chart-3: #e6a23c;
-  --color-chart-4: #f56c6c;
-  --color-chart-5: #909399;
-  --color-chart-6: #b37feb;
-  --color-axis: #c0c4cc;
+  --color-primary-50: #f3f1ff;
+  --color-primary-100: #e7e3ff;
+  --color-primary-200: #cbc4ff;
+  --color-primary-300: #a99dff;
+  --color-primary-400: #7e70fb;
+  --color-primary-500: #5749f4;
+  --color-primary-600: #4639d8;
+  --color-primary-700: #352bb0;
+
+  --color-secondary-50: #f0fdfa;
+  --color-secondary-100: #ccfbf1;
+  --color-secondary-400: #2dd4bf;
+  --color-secondary-500: #14b8a6;
+  --color-secondary-600: #0d9488;
+
+  --color-success: #22c55e;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-success-text: #15803d;
+  --color-warning: #f59e0b;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-warning-text: #b45309;
+  --color-danger: #ef4444;
+  --color-danger-bg: #fef2f2;
+  --color-danger-hover: #dc2626;
+  --color-danger-border: #fecaca;
+  --color-danger-text: #b91c1c;
+  --color-info: #0ea5e9;
+  --color-info-bg: #f0f9ff;
+  --color-info-border: #bae6fd;
+  --color-info-text: #0369a1;
+
+  --color-white: #ffffff;
+  --color-gray-50: #fafafb;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #e1e2e5;
+  --color-gray-300: #c5c5cb;
+  --color-gray-400: #939399;
+  --color-gray-500: #616167;
+  --color-gray-700: #403f51;
+  --color-gray-900: #2a2933;
+
+  --bg-page: var(--color-white);
+  --bg-card: var(--color-white);
+  --bg-subtle: var(--color-gray-100);
+  --bg-tile: var(--color-gray-100);
+  --text-title: var(--color-gray-900);
+  --text-body: var(--color-gray-700);
+  --text-secondary: var(--color-gray-500);
+  --text-placeholder: var(--color-gray-400);
+  --border-default: var(--color-gray-300);
+  --border-hover: var(--color-primary-300);
+  --border-focus: var(--color-primary-500);
+
+  --chart-1: #5749f4;
+  --chart-2: #14b8a6;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+  --chart-6: #22c55e;
+  --chart-7: #f97316;
+  --chart-8: #06b6d4;
+  --chart-grid: var(--color-gray-200);
+  --chart-axis-text: var(--color-gray-500);
+
+  --font-family-base: "Inter", "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+  --font-family-number: "DIN Alternate", "Roboto Mono", "SF Mono", monospace;
+  --font-family-code: "JetBrains Mono", "Fira Code", Consolas, monospace;
 
   --font-size-xs: 12px;
   --font-size-sm: 13px;
   --font-size-md: 14px;
   --font-size-lg: 16px;
   --font-size-xl: 20px;
-  --font-size-title: 22px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 32px;
+  --font-size-4xl: 40px;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
 
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 24px;
-  --space-xl: 32px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
 
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-pill: 999px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-card: 24px;
+  --radius-panel: 40px;
+  --radius-full: 999px;
 
-  --header-height: 56px;
-  --sider-width: 200px;
-  --content-max-width: 1280px;
-  --chart-height: 280px;
+  --shadow-xs: 0 1px 2px 0 rgb(42 41 51 / 4%);
+  --shadow-sm: 0 8px 24px -20px rgb(42 41 51 / 24%), 0 1px 2px rgb(42 41 51 / 5%);
+  --shadow-md: 0 18px 42px -28px rgb(42 41 51 / 30%), 0 4px 12px -8px rgb(42 41 51 / 14%);
+  --shadow-lg: 0 28px 72px -42px rgb(42 41 51 / 38%), 0 10px 24px -18px rgb(42 41 51 / 22%);
+  --shadow-primary: 0 16px 36px -22px rgb(87 73 244 / 48%);
 
-  --font-mono: 'IBM Plex Mono', Consolas, 'Courier New', monospace;
-  --font-sans: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --motion-duration-fast: 150ms;
+  --motion-duration-base: 250ms;
+  --motion-duration-slow: 400ms;
+  --motion-easing-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-easing-out: cubic-bezier(0, 0, 0.2, 1);
+  --motion-easing-in: cubic-bezier(0.4, 0, 1, 1);
+
+  --z-sticky: 100;
+  --z-dropdown: 1000;
+  --z-overlay: 1300;
+  --z-modal: 1400;
+  --z-toast: 1600;
+  --z-tooltip: 1700;
+
+  --layout-sidebar-width: 240px;
+  --layout-sidebar-collapsed: 64px;
+  --layout-header-height: 64px;
+  --layout-content-max: 1440px;
+  --layout-page-padding: 24px;
+  --control-height-sm: 28px;
+  --control-height-md: 36px;
+  --control-height-lg: 44px;
+  --tag-height-sm: 22px;
+  --tag-height-md: 24px;
+  --icon-size-sm: 16px;
+  --icon-size-md: 18px;
+  --icon-size-lg: 22px;
+  --chart-height-sm: 260px;
+  --chart-height-md: 280px;
+  --chart-height-lg: 320px;
+  --chart-height-modal: 520px;
+
+  /* 旧别名：迁移期保持页面兼容，业务代码新建时应使用语义令牌。 */
+  --color-bg: var(--bg-page);
+  --color-surface: var(--bg-card);
+  --color-border: var(--border-default);
+  --color-text: var(--text-body);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-inverse: var(--color-white);
+  --color-primary: var(--color-primary-500);
+  --color-primary-soft: var(--color-primary-50);
+  --color-tile: var(--bg-tile);
+  --color-hover: var(--bg-subtle);
+  --color-code-bg: var(--bg-subtle);
+  --color-warning-soft: var(--color-warning-bg);
+  --color-warning-soft-border: var(--color-warning-border);
+  --color-code-dark-bg: #1a182e;
+  --color-code-dark-text: #f2f3f0;
+  --color-shap-pos: var(--color-primary-500);
+  --color-shap-neg: var(--color-danger);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-axis: var(--chart-grid);
+  --font-sans: var(--font-family-base);
+  --font-mono: var(--font-family-code);
+  --header-height: var(--layout-header-height);
+  --sider-width: var(--layout-sidebar-width);
+  --content-max-width: var(--layout-content-max);
+  --chart-height: var(--chart-height-md);
+  --radius-pill: var(--radius-full);
+
+  /* Element Plus 仅作为基础控件，主题值仍由本文件统一控制。 */
+  --el-color-primary: var(--color-primary-500);
+  --el-color-primary-light-3: var(--color-primary-400);
+  --el-color-primary-light-5: var(--color-primary-300);
+  --el-color-primary-light-7: var(--color-primary-200);
+  --el-color-primary-light-9: var(--color-primary-50);
+  --el-color-primary-dark-2: var(--color-primary-600);
+  --el-color-success: var(--color-success);
+  --el-color-warning: var(--color-warning);
+  --el-color-danger: var(--color-danger);
+  --el-border-color: var(--border-default);
+  --el-fill-color-light: var(--bg-subtle);
+  --el-text-color-primary: var(--text-title);
+  --el-text-color-regular: var(--text-body);
+  --el-text-color-secondary: var(--text-secondary);
+  --el-border-radius-base: var(--radius-md);
 }
 
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
-
-.page {
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
-}
-
-.page-header h1 {
-  margin: 0 0 var(--space-sm);
-  font-size: var(--font-size-xl);
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.page-header .desc {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-}
-
-.card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
-}
-
-.section-card {
-  margin-bottom: var(--space-md);
-  border-radius: var(--radius-md);
-}
-
-.mono {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-}
-
-.muted {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.disclaimer {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-warning-soft);
-  border: 1px solid var(--color-warning-soft-border);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-md);
-}
-
-/* 代码/JSON 展示块统一底色（收敛 PiConsole/ToolTrace 等处重复定义） */
-.code-block {
-  background: var(--color-code-bg);
-  border-radius: 6px;
-  font-family: var(--font-mono);
-  font-size: var(--font-size-xs);
-}
-
-/* 间距工具类（8px 网格，收敛各页散落的内联 margin） */
-.ml-xs { margin-left: var(--space-xs); }
-.ml-sm { margin-left: var(--space-sm); }
-.mr-xs { margin-right: var(--space-xs); }
-.mt-0 { margin-top: 0; }
-.mt-sm { margin-top: var(--space-sm); }
-.mt-md { margin-top: var(--space-md); }
-.mb-0 { margin-bottom: 0; }
-.m-block-md { margin: var(--space-md) 0; }
-.w-full { width: 100%; }
-.input-wide { min-width: 240px; }
-.flex-1 { flex: 1; }
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-family-number); }

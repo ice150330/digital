@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import { ElCard, ElLink } from 'element-plus'
+import CodeBlock from '../components/CodeBlock.vue'
+import DisclaimerBanner from '../components/DisclaimerBanner.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
+
+const backendCommands = `pip install -e ".[dev]"
+python scripts/init_db.py
+python scripts/import_campaigns.py
+python scripts/run_all.py
+python scripts/run_all.py --with-p1
+python scripts/export_paper_tables.py
+uvicorn digital_marketing.api.main:app --reload --port 9800`
+
+const frontendCommands = `cd frontend
+npm install
+npm run dev`
 </script>
 
 <template>
@@ -12,22 +26,12 @@ import PageHeaderBar from '../components/PageHeaderBar.vue'
 
     <ElCard shadow="never" class="section-card">
       <template #header>从零复现（后端）</template>
-      <pre class="code">pip install -e ".[dev]"
-python scripts/init_db.py
-python scripts/import_campaigns.py
-python scripts/run_all.py
-python scripts/run_all.py --with-p1
-python scripts/export_paper_tables.py
-# 或分步：01_clean → 02_train → 03_explain → 04_cluster → 05_rules
-uvicorn digital_marketing.api.main:app --reload --port 9800</pre>
+      <CodeBlock :code="backendCommands" label="PowerShell · 后端复现" />
     </ElCard>
 
     <ElCard shadow="never" class="section-card">
       <template #header>前端</template>
-      <pre class="code">cd frontend
-npm install
-npm run dev
-# 开发端口 5600（vite.config.ts）</pre>
+      <CodeBlock :code="frontendCommands" label="PowerShell · 前端开发" />
       <p class="muted">
         baseURL 使用 <code>VITE_API_BASE_URL</code>，默认
         <code>http://127.0.0.1:9800/api/v1</code>。演示清单见
@@ -54,10 +58,7 @@ npm run dev
         <li>变更：<code>CHANGE.md</code></li>
         <li>计划：<code>docs/plans/</code></li>
       </ul>
-      <p class="disclaimer mt-md">
-        AI 使用说明：本仓库允许使用 Claude Code 等辅助实现；论文中的数字必须以
-        <code>outputs/metrics</code> 为准，禁止手改 metrics 充表。Agent 须工具接地，不得无依据编造 AUC。
-      </p>
+      <DisclaimerBanner content="AI 使用说明：论文中的数字必须以 outputs/metrics 为准，禁止手改 metrics 充表。Agent 须工具接地，不得无依据编造 AUC。" />
     </ElCard>
 
     <p class="muted">
@@ -70,21 +71,10 @@ npm run dev
 </template>
 
 <style scoped>
-.code {
-  margin: 0;
-  padding: 12px 14px;
-  background: var(--color-code-dark-bg);
-  color: var(--color-code-dark-text);
-  border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  overflow: auto;
-}
 .list {
   margin: 0;
-  padding-left: 18px;
-  font-size: 13px;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-sm);
   line-height: 1.9;
 }
 </style>

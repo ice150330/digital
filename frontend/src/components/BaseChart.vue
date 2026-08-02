@@ -7,6 +7,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { EChartsCoreOption } from 'echarts/core'
 import echarts from '../utils/echarts'
+import { COLOR_SURFACE } from '../utils/chartTheme'
 
 const props = withDefaults(
   defineProps<{
@@ -14,7 +15,7 @@ const props = withDefaults(
     /** 容器高度；默认取 token --chart-height，大屏传具体值 */
     height?: string
     /** 主题作用域标记（色值由 option 携带，此处仅作 data 属性供 CSS） */
-    theme?: 'default' | 'screen'
+    theme?: 'default'
     notMerge?: boolean
   }>(),
   {
@@ -38,6 +39,10 @@ function resize() {
   chart?.resize()
 }
 
+function getDataURL() {
+  return chart?.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: COLOR_SURFACE }) || null
+}
+
 onMounted(() => {
   render()
   if (el.value && typeof ResizeObserver !== 'undefined') {
@@ -55,7 +60,7 @@ onBeforeUnmount(() => {
 
 watch(() => props.option, render, { deep: true })
 
-defineExpose({ resize })
+defineExpose({ resize, getDataURL })
 </script>
 
 <template>

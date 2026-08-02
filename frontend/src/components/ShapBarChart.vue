@@ -67,11 +67,11 @@ const option = computed(() => {
 
 <style scoped>
 .title {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
 }
 .legend {
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
 }
 </style>

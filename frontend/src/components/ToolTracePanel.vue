@@ -1,45 +1,23 @@
 <script setup lang="ts">
-import { ElCollapse, ElCollapseItem, ElTag } from 'element-plus'
 import type { ToolTraceItem } from '../api/agent'
+import ToolTimeline from './ToolTimeline.vue'
 
-defineProps<{
-  trace: ToolTraceItem[]
-}>()
+defineProps<{ trace: ToolTraceItem[]; streaming?: boolean }>()
+const emit = defineEmits<{ retry: [item: ToolTraceItem] }>()
 </script>
 
 <template>
-  <ElCollapse>
-    <ElCollapseItem title="tool_trace（工具执行轨迹）" name="trace">
-      <div v-for="(t, i) in trace" :key="i" class="trace-item">
-        <div>
-          <ElTag :type="t.ok ? 'success' : 'danger'" size="small">{{ t.tool }}</ElTag>
-          <span class="mono muted args">{{ JSON.stringify(t.args || {}) }}</span>
-        </div>
-        <pre v-if="t.error" class="err">{{ t.error }}</pre>
-        <pre v-else class="json">{{ JSON.stringify(t.result, null, 2) }}</pre>
-      </div>
-    </ElCollapseItem>
-  </ElCollapse>
+  <div class="trace-panel">
+    <ToolTimeline :trace="trace" :streaming="streaming" @retry="emit('retry', $event)" />
+    <details v-if="trace.length" class="raw-details">
+      <summary>查看原始 tool_trace</summary>
+      <pre>{{ JSON.stringify(trace, null, 2) }}</pre>
+    </details>
+  </div>
 </template>
 
 <style scoped>
-.trace-item {
-  margin-bottom: 10px;
-}
-.args {
-  margin-left: var(--space-sm);
-}
-.json,
-.err {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  background: var(--color-code-bg);
-  padding: 8px;
-  border-radius: 6px;
-  overflow: auto;
-  max-height: 200px;
-}
-.err {
-  color: var(--color-danger);
-}
+.raw-details { margin-top: var(--space-2); color: var(--text-secondary); font-size: var(--font-size-xs); }
+.raw-details summary { cursor: pointer; }
+.raw-details pre { max-height: 240px; overflow: auto; margin: var(--space-2) 0 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-code-dark-bg); color: var(--color-code-dark-text); font-family: var(--font-family-code); font-size: var(--font-size-xs); }
 </style>

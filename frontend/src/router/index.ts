@@ -7,7 +7,7 @@ const router = createRouter({
       path: '/screen',
       name: 'screen',
       component: () => import('../views/ScreenView.vue'),
-      meta: { title: '总览大屏', fullscreen: true },
+      meta: { title: '总览大屏' },
     },
     {
       path: '/',

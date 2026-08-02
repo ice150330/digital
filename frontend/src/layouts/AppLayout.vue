@@ -1,59 +1,48 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  ChatDotRound,
-  Coin,
-  Collection,
-  Connection,
-  DataBoard,
-  Expand,
-  Fold,
-  Histogram,
-  InfoFilled,
-  Odometer,
-  Operation,
-  User,
-} from '@element-plus/icons-vue'
-import { fetchHealth, type HealthData } from '../api/health'
+import { storeToRefs } from 'pinia'
+import Icon from '../components/Icon.vue'
+import RunIdChip from '../components/RunIdChip.vue'
+import { useHealth } from '../composables/useHealth'
+import { useAppStore } from '../stores/app'
 
 const route = useRoute()
-const health = ref<HealthData | null>(null)
-const healthError = ref<string | null>(null)
-const loading = ref(true)
-const collapsed = ref(false)
+const appStore = useAppStore()
+const { sidebarCollapsed: collapsed } = storeToRefs(appStore)
+const { health, healthError, healthLoading: loading, refreshHealth } = useHealth()
 
 // Stage 6：侧栏四层叙事分组 —— 数据分析 → 数据挖掘 由浅入深
 const navSections = [
   {
     title: '总览大屏',
-    items: [{ to: '/screen', label: '总览大屏', icon: DataBoard }],
+    items: [{ to: '/screen', label: '总览大屏', icon: 'uil:desktop-alt' }],
   },
   {
     title: '描述性分析',
-    items: [{ to: '/', label: '数据总览', icon: Odometer }],
+    items: [{ to: '/', label: '数据总览', icon: 'uil:apps' }],
   },
   {
     title: '预测建模',
     items: [
-      { to: '/models', label: '模型实验室', icon: Histogram },
-      { to: '/customers', label: '客户洞察', icon: User },
+      { to: '/models', label: '模型实验室', icon: 'uil:chart' },
+      { to: '/customers', label: '客户洞察', icon: 'uil:user' },
     ],
   },
   {
     title: '深度挖掘',
     items: [
-      { to: '/segments', label: '分群画像', icon: Collection },
-      { to: '/rules', label: '关联规则', icon: Connection },
-      { to: '/simulate', label: '预算模拟', icon: Coin },
+      { to: '/segments', label: '分群画像', icon: 'uil:users-alt' },
+      { to: '/rules', label: '关联规则', icon: 'uil:code-branch' },
+      { to: '/simulate', label: '预算模拟', icon: 'uil:wallet' },
     ],
   },
   {
     title: 'AI 与系统',
     items: [
-      { to: '/agent', label: 'AI 分析台', icon: ChatDotRound },
-      { to: '/pi', label: 'Pi 编排中枢', icon: Operation },
-      { to: '/about', label: '关于与复现', icon: InfoFilled },
+      { to: '/agent', label: 'AI 分析台', icon: 'uil:comment-dots' },
+      { to: '/pi', label: 'Pi 编排中枢', icon: 'uil:cog' },
+      { to: '/about', label: '关于与复现', icon: 'uil:info-circle' },
     ],
   },
 ]
@@ -78,21 +67,6 @@ function isActive(path: string) {
   return route.path.startsWith(path)
 }
 
-async function refreshHealth() {
-  loading.value = true
-  healthError.value = null
-  try {
-    const { data } = await fetchHealth()
-    health.value = data
-  } catch (e) {
-    health.value = null
-    healthError.value = e instanceof Error ? e.message : '未知错误'
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(refreshHealth)
 defineExpose({ refreshHealth, health })
 </script>
 
@@ -101,13 +75,11 @@ defineExpose({ refreshHealth, health })
     <header class="header">
       <div class="brand">营销转化分析</div>
       <div class="header-right">
-        <span
+        <RunIdChip
           v-if="health?.default_run_id"
-          class="run-chip mono"
+          :value="health.default_run_id"
           :title="health.artifacts_ok ? '产物就绪' : '产物降级'"
-        >
-          {{ health.default_run_id }}
-        </span>
+        />
         <span class="health" :title="healthError || health?.message || ''">
           <span class="dot" :style="{ background: statusColor }" />
           {{ statusText }}
@@ -119,9 +91,9 @@ defineExpose({ refreshHealth, health })
         <button
           class="collapse-btn"
           :title="collapsed ? '展开侧栏' : '收起侧栏'"
-          @click="collapsed = !collapsed"
+          @click="appStore.toggleSidebar"
         >
-          <el-icon><Expand v-if="collapsed" /><Fold v-else /></el-icon>
+          <Icon :icon="collapsed ? 'uil:angle-right' : 'uil:angle-left'" size="md" :title="collapsed ? '展开侧栏' : '收起侧栏'" />
         </button>
         <nav v-for="section in navSections" :key="section.title" class="nav-section">
           <div v-if="!collapsed" class="nav-title">{{ section.title }}</div>
@@ -134,7 +106,7 @@ defineExpose({ refreshHealth, health })
             :to="item.to"
             :title="item.label"
           >
-            <el-icon class="nav-icon"><component :is="item.icon" /></el-icon>
+            <Icon class="nav-icon" :icon="item.icon" size="md" :title="item.label" />
             <span v-if="!collapsed" class="nav-label">{{ item.label }}</span>
           </router-link>
         </nav>
@@ -151,46 +123,41 @@ defineExpose({ refreshHealth, health })
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-sans);
+  background: var(--bg-page);
+  color: var(--text-body);
+  font-family: var(--font-family-base);
 }
 .header {
-  height: var(--header-height);
-  padding: 0 20px;
+  height: var(--layout-header-height);
+  padding: 0 var(--space-6);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-default);
 }
 .brand {
-  font-weight: 700;
-  font-size: 16px;
+  color: var(--text-title);
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-lg);
 }
 .header-right {
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-}
-.run-chip {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  padding: 2px 8px;
-  border-radius: var(--radius-pill);
-  font-size: 11px;
+  gap: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
 }
 .health {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
 }
 .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
   display: inline-block;
 }
 .body {
@@ -199,91 +166,93 @@ defineExpose({ refreshHealth, health })
   min-height: 0;
 }
 .sider {
-  width: var(--sider-width);
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
-  padding: 8px;
+  width: var(--layout-sidebar-width);
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-default);
+  padding: var(--space-2);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   flex-shrink: 0;
-  transition: width 0.18s ease;
+  transition: width var(--motion-duration-base) var(--motion-easing-default);
   overflow: hidden;
 }
 .sider.collapsed {
-  width: 64px;
+  width: var(--layout-sidebar-collapsed);
 }
 .collapse-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 30px;
-  margin-bottom: 6px;
+  height: var(--space-8);
+  margin-bottom: var(--space-2);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: background 0.15s ease;
+  transition: background var(--motion-duration-fast) var(--motion-easing-default), color var(--motion-duration-fast) var(--motion-easing-default);
 }
 .collapse-btn:hover {
-  background: var(--color-hover);
-  color: var(--color-primary);
+  background: var(--bg-subtle);
+  color: var(--color-primary-600);
 }
 .nav-section {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .nav-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  padding: 10px 12px 4px;
-  letter-spacing: 1px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  padding: var(--space-3) var(--space-3) var(--space-1);
+  letter-spacing: 0.04em;
   white-space: nowrap;
 }
 .nav-divider {
   height: 1px;
-  margin: 8px 10px 4px;
-  background: var(--color-border);
+  margin: var(--space-2) var(--space-2) var(--space-1);
+  background: var(--border-default);
 }
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 6px;
-  font-size: 13px;
-  color: var(--color-text);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--text-body);
   text-decoration: none;
   white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background var(--motion-duration-fast) var(--motion-easing-default), color var(--motion-duration-fast) var(--motion-easing-default);
 }
 .nav-icon {
-  font-size: 16px;
+  width: var(--space-5);
+  height: var(--space-5);
   flex-shrink: 0;
 }
 .nav-item.active {
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
-  font-weight: 600;
+  background: var(--color-primary-50);
+  color: var(--color-primary-700);
+  font-weight: var(--font-weight-semibold);
 }
 .nav-item:hover:not(.active) {
-  background: var(--color-hover);
+  background: var(--bg-subtle);
 }
 .sider.collapsed .nav-item {
   justify-content: center;
-  padding: 9px 0;
+  padding: var(--space-2) 0;
 }
 .main {
+  min-width: 0;
   flex: 1;
-  padding: 24px;
+  padding: var(--layout-page-padding);
   overflow: auto;
 }
 @media (max-width: 992px) {
   .sider {
-    width: 64px;
+    width: var(--layout-sidebar-collapsed);
   }
   .sider .nav-label,
   .sider .nav-title {
@@ -291,7 +260,32 @@ defineExpose({ refreshHealth, health })
   }
   .sider .nav-item {
     justify-content: center;
-    padding: 9px 0;
+    padding: var(--space-2) 0;
+  }
+}
+@media (max-width: 640px) {
+  .header {
+    padding: 0 var(--space-3);
+  }
+  .brand {
+    font-size: var(--font-size-md);
+  }
+  .health {
+    display: none;
+  }
+  .header-right {
+    min-width: 0;
+    max-width: 55%;
+    justify-content: flex-end;
+    overflow: hidden;
+  }
+  .header-right :deep(.run-chip) {
+    max-width: 128px;
+    min-width: 0;
+  }
+  .main {
+    padding: var(--space-3);
+    overflow-x: hidden;
   }
 }
 @media (prefers-reduced-motion: reduce) {
