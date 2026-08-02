@@ -173,6 +173,25 @@ export async function postData<T>(
   }
 }
 
+export async function putData<T>(
+  path: string,
+  payload?: unknown,
+  opts?: { timeout?: number },
+): Promise<{ data: T; requestId: string }> {
+  try {
+    const resp = await http.put<ApiEnvelope<T>>(path, payload ?? {}, {
+      timeout: opts?.timeout ?? 30000,
+    })
+    const body = resp.data
+    if (!body.ok || body.data == null) {
+      throw new Error(envelopeMessage(body))
+    }
+    return { data: body.data, requestId: body.request_id }
+  } catch (err) {
+    throw unwrapError(err)
+  }
+}
+
 export async function deleteData<T>(path: string): Promise<{ data: T; requestId: string }> {
   try {
     const resp = await http.delete<ApiEnvelope<T>>(path)

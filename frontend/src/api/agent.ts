@@ -1,4 +1,4 @@
-import { deleteData, getData, postData, postStream, type StreamConnection } from './http'
+import { deleteData, getData, postData, postStream, putData, type StreamConnection } from './http'
 
 export interface ToolTraceItem {
   tool: string
@@ -19,6 +19,7 @@ export interface ChatData {
   open_questions: string[]
   tool_trace: ToolTraceItem[]
   latency_ms?: number
+  llm_model?: string | null
   pi_status?: Record<string, unknown> | null
   pi_fallback?: boolean
 }
@@ -40,6 +41,62 @@ export interface PiStatusData {
   bridge_note: string | null
 }
 
+export interface PiAgentSettingsData {
+  runtime: string
+  llm: {
+    base_url: string
+    model: string
+    timeout_sec: number
+    api_key_configured: boolean
+    api_key_preview: string | null
+  }
+  pi: {
+    executable: string
+    skills_dir: string
+    session_dir: string
+    timeout_sec: number
+    bridge_model: string
+  }
+  updated_at: string
+}
+
+export interface PiAgentConfigData {
+  settings: PiAgentSettingsData
+  status: PiStatusData
+  config_endpoint_ready?: boolean
+}
+
+export interface PiAgentConfigUpdate {
+  runtime?: string
+  llm?: {
+    base_url?: string
+    timeout_sec?: number
+  }
+  pi?: {
+    executable?: string
+    skills_dir?: string
+    session_dir?: string
+    timeout_sec?: number
+    bridge_model?: string
+  }
+  api_key?: string
+  clear_api_key?: boolean
+}
+
+export interface PiModelItemData {
+  id: string
+  label: string
+  owned_by?: string | null
+}
+
+export interface PiModelListData {
+  base_url: string
+  models: PiModelItemData[]
+  n: number
+  selected_model: string
+  source: Record<string, unknown>
+}
+
 export function chatAgent(body: {
   message: string
   session_id?: string
@@ -54,6 +111,13 @@ export interface AgentStreamDone {
   runtime?: string | null
   pi_fallback?: boolean
   pi_status?: Record<string, unknown> | null
+  llm_model?: string | null
+}
+
+export interface AgentStreamStatus {
+  phase: 'planning' | 'tooling' | 'replying' | 'bridge' | 'done' | 'error' | string
+  message?: string
+  n_tools?: number
 }
 
 export interface AgentStreamHandlers {
@@ -61,6 +125,7 @@ export interface AgentStreamHandlers {
   toolStart?: (data: { tool: string; args?: Record<string, unknown> }) => void
   toolEnd?: (data: ToolTraceItem) => void
   chart?: (data: { spec: Record<string, unknown> }) => void
+  status?: (data: AgentStreamStatus) => void
   facts?: (data: { items: string[] }) => void
   inferences?: (data: { items: string[] }) => void
   recommendations?: (data: { items: string[] }) => void
@@ -78,6 +143,7 @@ export function chatAgentStream(
     else if (event === 'tool_start') handlers.toolStart?.(data as { tool: string; args?: Record<string, unknown> })
     else if (event === 'tool_end') handlers.toolEnd?.(data as ToolTraceItem)
     else if (event === 'chart') handlers.chart?.(data as { spec: Record<string, unknown> })
+    else if (event === 'status') handlers.status?.(data as AgentStreamStatus)
     else if (event === 'facts') handlers.facts?.(data as { items: string[] })
     else if (event === 'inferences') handlers.inferences?.(data as { items: string[] })
     else if (event === 'recommendations') handlers.recommendations?.(data as { items: string[] })
@@ -116,6 +182,47 @@ export function deleteAgentSession(sessionId: string) {
 
 export function fetchPiStatus() {
   return getData<PiStatusData>('/agent/pi/status')
+}
+
+export function fetchPiConfig() {
+  return getData<PiAgentConfigData>('/agent/pi/config').catch(async (error) => {
+    const fallback = await fetchPiStatus().catch(() => {
+      throw error
+    })
+    return {
+      data: {
+        settings: {
+          runtime: fallback.data.default_runtime || 'pi',
+          llm: {
+            base_url: '',
+            model: 'deepseek-chat',
+            timeout_sec: 60,
+            api_key_configured: false,
+            api_key_preview: null,
+          },
+          pi: {
+            executable: fallback.data.executable || 'tools/pi-cli/node_modules/.bin/pi',
+            skills_dir: 'src/digital_marketing/agent/skills',
+            session_dir: 'outputs/agent_sessions',
+            timeout_sec: 180,
+            bridge_model: 'deepseek/deepseek-chat',
+          },
+          updated_at: new Date().toISOString(),
+        },
+        status: fallback.data,
+        config_endpoint_ready: false,
+      },
+      requestId: fallback.requestId,
+    }
+  })
+}
+
+export function updatePiConfig(body: PiAgentConfigUpdate) {
+  return putData<PiAgentConfigData>('/agent/pi/config', body)
+}
+
+export function fetchPiModels() {
+  return getData<PiModelListData>('/agent/pi/models')
 }
 
 export function setRuntime(runtime: string) {

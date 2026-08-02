@@ -14,7 +14,22 @@ import ToolTimeline from '../components/ToolTimeline.vue'
 import { useAgentStore } from '../stores/agent'
 
 const agentStore = useAgentStore()
-const { currentSessionId, messages, sessions, loading, streaming, error, runtime } = storeToRefs(agentStore)
+const {
+  currentSessionId,
+  messages,
+  sessions,
+  loading,
+  streaming,
+  error,
+  runtime,
+  runPhase,
+  runStatusText,
+  activeTool,
+  eventCount,
+  completedToolCount,
+  chartCount,
+  lastEventAt,
+} = storeToRefs(agentStore)
 const message = ref('各渠道转化率如何？请生成柱状图并说明模型 PR-AUC。')
 const pi = ref<PiStatusData | null>(null)
 const chatScroll = ref<HTMLElement | null>(null)
@@ -28,6 +43,35 @@ const chips = [
 
 const latestAssistant = computed(() => [...messages.value].reverse().find((item) => item.role === 'assistant' && item.data))
 const activeTrace = computed(() => latestAssistant.value?.data?.tool_trace || [])
+const phaseLabel = computed(() => ({
+  idle: '待命',
+  planning: '规划中',
+  bridge: '连接 Pi',
+  tooling: '工具执行',
+  replying: 'AI 回复',
+  done: '已完成',
+  error: '异常',
+  stopped: '已停止',
+}[runPhase.value] || runPhase.value))
+const phaseTone = computed(() => {
+  if (runPhase.value === 'done') return 'success'
+  if (runPhase.value === 'error') return 'danger'
+  if (runPhase.value === 'stopped') return 'warning'
+  if (streaming.value || loading.value) return 'primary'
+  return 'info'
+})
+const monitorItems = computed(() => [
+  { label: '工具完成', value: String(streaming.value ? completedToolCount.value : activeTrace.value.filter((item) => item.ok !== undefined).length) },
+  { label: '图表', value: String(chartCount.value || activeTrace.value.filter((item) => item.tool === 'render_chart' && item.ok).length) },
+  { label: '事件', value: String(eventCount.value) },
+])
+const runtimeState = computed(() => {
+  if (runtime.value === 'pi') {
+    if (pi.value?.installed && !pi.value?.is_stub && pi.value?.bridge_ready) return 'Pi bridge ready'
+    return 'Pi fallback guarded'
+  }
+  return '上游 LLM'
+})
 
 async function loadPi() {
   try {
@@ -91,14 +135,13 @@ watch(
           <RuntimeBadge :runtime="runtime" :pi="pi" />
           <ElSelect class="runtime-select" :model-value="runtime" aria-label="选择 Agent Runtime" @change="changeRuntime">
             <ElOption label="Pi（默认）" value="pi" />
-            <ElOption label="本地工具" value="local" />
-            <ElOption label="模板模式" value="template" />
+            <ElOption label="本地 LLM" value="local" />
           </ElSelect>
         </div>
       </template>
     </PageHeaderBar>
 
-    <DisclaimerBanner content="LLM 只负责组织问题和说明结果，所有指标与图表数据均来自后端工具；Pi 不可用时会明确降级到本地工具。" />
+    <DisclaimerBanner content="AI 回复由上游模型生成；指标、转化率、SHAP 与图表数据只来自后端工具结果。" />
 
     <div class="agent-workspace">
       <SessionList
@@ -117,7 +160,9 @@ watch(
             <strong>{{ currentSessionId ? '当前分析会话' : '新分析会话' }}</strong>
             <span v-if="currentSessionId" class="session-id">{{ currentSessionId }}</span>
           </div>
-          <span class="grounded-label"><Icon icon="uil:shield-check" size="sm" /> 工具接地</span>
+          <span class="grounded-label" :class="`tone-${phaseTone}`">
+            <Icon icon="uil:shield-check" size="sm" /> {{ phaseLabel }}
+          </span>
         </header>
 
         <div ref="chatScroll" class="message-list" aria-live="polite">
@@ -135,8 +180,21 @@ watch(
 
       <aside class="monitor-panel">
         <div class="monitor-head">
-          <div><strong>工具监控</strong><span>本轮真实执行轨迹</span></div>
+          <div><strong>运行监控</strong><span>{{ runStatusText }}</span></div>
           <span class="monitor-count">{{ activeTrace.length }}</span>
+        </div>
+        <div class="run-state-card">
+          <div class="run-state-main">
+            <span class="run-phase" :class="`tone-${phaseTone}`">{{ phaseLabel }}</span>
+            <strong>{{ activeTool || runtimeState }}</strong>
+            <small v-if="lastEventAt">{{ new Date(lastEventAt).toLocaleTimeString('zh-CN', { hour12: false }) }}</small>
+          </div>
+          <div class="run-state-grid">
+            <div v-for="item in monitorItems" :key="item.label">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </div>
+          </div>
         </div>
         <ToolTimeline :trace="activeTrace" :streaming="streaming" @retry="agentStore.retryTool" />
         <div class="runtime-card">
@@ -144,6 +202,7 @@ watch(
           <dl>
             <div><dt>Runtime</dt><dd>{{ runtime }}</dd></div>
             <div><dt>Pi</dt><dd>{{ pi?.installed && !pi?.is_stub ? '已就绪' : '可降级' }}</dd></div>
+            <div><dt>模型</dt><dd>{{ latestAssistant?.data?.llm_model || '—' }}</dd></div>
             <div><dt>会话</dt><dd>{{ pi?.sessions_count ?? sessions.length }}</dd></div>
           </dl>
         </div>
@@ -156,12 +215,18 @@ watch(
 .agent-page { display: flex; flex-direction: column; gap: var(--space-4); }
 .runtime-actions { display: flex; align-items: center; gap: var(--space-2); }
 .runtime-select { width: 148px; }
-.agent-workspace { display: grid; grid-template-columns: 248px minmax(0, 1fr) 304px; gap: var(--space-4); min-height: 680px; }
+.agent-workspace { display: grid; grid-template-columns: 248px minmax(0, 1fr) 304px; align-items: start; gap: var(--space-4); min-height: 680px; }
+.session-panel { align-self: start; }
 .conversation-panel { display: flex; min-width: 0; flex-direction: column; gap: var(--space-3); }
 .conversation-head { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
 .conversation-head strong { color: var(--text-title); font-size: var(--font-size-md); }
 .session-id { display: block; max-width: 240px; margin-top: var(--space-1); overflow: hidden; color: var(--text-secondary); font-family: var(--font-family-number); font-size: var(--font-size-xs); text-overflow: ellipsis; white-space: nowrap; }
-.grounded-label { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-success-text); font-size: var(--font-size-xs); }
+.grounded-label { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full); background: var(--bg-subtle); color: var(--text-secondary); font-size: var(--font-size-xs); }
+.tone-primary { color: var(--color-primary-700); background: var(--color-primary-50); }
+.tone-success { color: var(--color-success-text); background: var(--color-success-bg); }
+.tone-warning { color: var(--color-warning-text); background: var(--color-warning-bg); }
+.tone-danger { color: var(--color-danger-text); background: var(--color-danger-bg); }
+.tone-info { color: var(--text-secondary); background: var(--bg-subtle); }
 .message-list { display: flex; min-height: 380px; max-height: 660px; flex: 1; flex-direction: column; gap: var(--space-6); overflow-y: auto; padding: var(--space-5); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-subtle); scroll-behavior: smooth; }
 .welcome-state { display: grid; min-height: 300px; place-items: center; align-content: center; text-align: center; }
 .welcome-icon { display: grid; width: 56px; height: 56px; place-items: center; border-radius: var(--radius-full); background: var(--color-primary-50); color: var(--color-primary-600); }
@@ -174,6 +239,15 @@ watch(
 .monitor-head strong { color: var(--text-title); font-size: var(--font-size-sm); }
 .monitor-head div > span { margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--font-size-xs); }
 .monitor-count { display: grid; width: 28px; height: 28px; place-items: center; border-radius: var(--radius-full); background: var(--color-primary-50); color: var(--color-primary-700); font-family: var(--font-family-number); font-size: var(--font-size-xs); }
+.run-state-card { padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
+.run-state-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); min-width: 0; }
+.run-state-main strong { overflow: hidden; color: var(--text-title); font-size: var(--font-size-sm); text-overflow: ellipsis; white-space: nowrap; }
+.run-state-main small { color: var(--text-secondary); font-family: var(--font-family-number); font-size: var(--font-size-xs); }
+.run-phase { display: inline-flex; align-items: center; min-height: 24px; padding: 0 var(--space-2); border-radius: var(--radius-full); font-size: var(--font-size-xs); font-weight: var(--font-weight-semibold); white-space: nowrap; }
+.run-state-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-3); }
+.run-state-grid div { min-width: 0; padding: var(--space-2); border-radius: var(--radius-md); background: var(--bg-subtle); }
+.run-state-grid span { display: block; color: var(--text-secondary); font-size: var(--font-size-xs); }
+.run-state-grid strong { display: block; margin-top: var(--space-1); color: var(--text-title); font-family: var(--font-family-number); font-size: var(--font-size-md); }
 .runtime-card { padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
 .runtime-card-title { display: flex; align-items: center; gap: var(--space-2); color: var(--text-title); font-size: var(--font-size-sm); }
 .runtime-card dl { margin: var(--space-3) 0 0; }
@@ -192,5 +266,6 @@ watch(
   .message-list { min-height: 320px; max-height: 520px; gap: var(--space-4); padding: var(--space-3); }
   .welcome-state { min-height: 240px; }
   .conversation-head { min-height: var(--control-height-lg); padding: 0 var(--space-3); }
+  .run-state-main { grid-template-columns: 1fr; align-items: start; }
 }
 </style>

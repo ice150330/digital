@@ -4,6 +4,7 @@ import type { AgentUiMessage } from '../stores/agent'
 import type { ToolTraceItem } from '../api/agent'
 import ChartCard, { type ChartSpec } from './ChartCard.vue'
 import Icon from './Icon.vue'
+import MarkdownContent from './MarkdownContent.vue'
 import Tag from './Tag.vue'
 
 const props = defineProps<{ message: AgentUiMessage }>()
@@ -31,15 +32,25 @@ const sections = computed(() => {
         <strong>{{ message.role === 'user' ? '你' : '分析 Copilot' }}</strong>
         <Tag v-if="message.data?.pi_fallback" tone="warning">Pi 已降级</Tag>
         <Tag v-if="message.data?.runtime" tone="info">{{ message.data.runtime }}</Tag>
+        <Tag v-if="message.data?.llm_model" tone="primary">{{ message.data.llm_model }}</Tag>
         <span v-if="message.data?.latency_ms" class="latency">{{ Math.round(message.data.latency_ms) }} ms</span>
       </div>
-      <div class="message-content">{{ message.content }}<span v-if="message.streaming" class="typing-cursor" /></div>
+      <div class="message-content">
+        <MarkdownContent :content="message.content" />
+        <span v-if="message.streaming" class="typing-cursor" />
+      </div>
 
-      <div v-if="sections.length && !message.streaming" class="contract-sections">
-        <section v-for="section in sections" :key="section.key" class="contract-section">
-          <h4><Icon :icon="section.icon" size="sm" />{{ section.title }}</h4>
-          <ul><li v-for="item in section.items" :key="item">{{ item }}</li></ul>
-        </section>
+      <div v-if="sections.length && !message.streaming" class="contract-folds" aria-label="分析契约详情">
+        <details v-for="section in sections" :key="section.key" class="contract-fold">
+          <summary>
+            <span class="contract-title"><Icon :icon="section.icon" size="sm" />{{ section.title }}</span>
+            <span class="contract-count">{{ section.items.length }} 条</span>
+            <Icon class="contract-chevron" icon="uil:angle-down" size="sm" />
+          </summary>
+          <ul>
+            <li v-for="(item, index) in section.items" :key="`${section.key}-${index}`">{{ item }}</li>
+          </ul>
+        </details>
       </div>
 
       <div v-if="chartSpecs.length && !message.streaming" class="message-charts">
@@ -60,15 +71,21 @@ const sections = computed(() => {
 .message-meta strong { color: var(--text-title); font-size: var(--font-size-sm); }
 .role-user .message-meta { justify-content: flex-end; }
 .latency { font-family: var(--font-family-number); }
-.message-content { padding: var(--space-3) var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-card); color: var(--text-body); font-size: var(--font-size-md); line-height: 1.7; white-space: pre-wrap; box-shadow: var(--shadow-xs); }
+.message-content { padding: var(--space-3) var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-card); color: var(--text-body); font-size: var(--font-size-md); line-height: 1.7; box-shadow: var(--shadow-xs); }
 .role-user .message-content { border-color: var(--color-primary-100); background: var(--color-primary-50); color: var(--color-primary-700); }
 .typing-cursor { display: inline-block; width: 2px; height: 1em; margin-left: var(--space-1); background: var(--color-primary-500); vertical-align: -0.15em; animation: blink 0.8s steps(2, start) infinite; }
-.contract-sections { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-3); }
-.contract-section { padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-card); }
-.contract-section h4 { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); color: var(--text-title); font-size: var(--font-size-sm); }
-.contract-section ul { margin: 0; padding-left: var(--space-5); color: var(--text-body); font-size: var(--font-size-sm); line-height: 1.6; }
+.contract-folds { display: grid; gap: var(--space-2); margin-top: var(--space-3); }
+.contract-fold { overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-card); box-shadow: var(--shadow-xs); }
+.contract-fold summary { display: flex; align-items: center; gap: var(--space-2); min-height: 42px; padding: 0 var(--space-3); color: var(--text-title); cursor: pointer; list-style: none; }
+.contract-fold summary::-webkit-details-marker { display: none; }
+.contract-title { display: inline-flex; min-width: 0; flex: 1; align-items: center; gap: var(--space-2); overflow: hidden; font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); text-overflow: ellipsis; white-space: nowrap; }
+.contract-count { display: inline-flex; align-items: center; min-height: var(--tag-height-sm); padding: 0 var(--space-2); border-radius: var(--radius-full); background: var(--bg-subtle); color: var(--text-secondary); font-size: var(--font-size-xs); white-space: nowrap; }
+.contract-chevron { flex: 0 0 auto; color: var(--text-secondary); transition: transform var(--motion-duration-fast) var(--motion-easing-default); }
+.contract-fold[open] .contract-chevron { transform: rotate(180deg); }
+.contract-fold ul { margin: 0; padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6); border-top: 1px solid var(--border-default); color: var(--text-body); font-size: var(--font-size-sm); line-height: 1.6; }
+.contract-fold li + li { margin-top: var(--space-2); }
 .message-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-3); margin-top: var(--space-3); }
 @keyframes blink { 50% { opacity: 0; } }
-@media (max-width: 900px) { .contract-sections { grid-template-columns: 1fr; } .role-user .message-body { max-width: 100%; } }
+@media (max-width: 900px) { .role-user .message-body { max-width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .typing-cursor { animation: none; } }
 </style>
