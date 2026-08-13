@@ -22,7 +22,7 @@ const emit = defineEmits<{ retry: [item: ToolTraceItem] }>()
 </template>
 
 <style scoped>
-.tool-timeline { padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
+.tool-timeline { padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
 .tool-timeline header { display: flex; align-items: center; justify-content: space-between; padding-bottom: var(--space-3); border-bottom: 1px solid var(--border-default); color: var(--text-secondary); font-size: var(--font-size-xs); }
 .timeline-title { display: flex; align-items: center; gap: var(--space-2); color: var(--text-title); font-size: var(--font-size-sm); }
 .timeline-items { margin-top: var(--space-2); }

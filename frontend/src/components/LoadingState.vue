@@ -17,7 +17,7 @@ withDefaults(defineProps<{ label?: string; rows?: number }>(), {
 </template>
 
 <style scoped>
-.loading-state { padding: var(--space-5); border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-card); }
+.loading-state { padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-card); }
 .loading-title { display: flex; align-items: center; gap: var(--space-2); color: var(--text-secondary); font-size: var(--font-size-sm); }
 .loading-title :deep(.app-icon) { color: var(--color-primary-500); animation: spin var(--motion-duration-slow) linear infinite; }
 .loading-lines { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-4); }

@@ -1,13 +1,13 @@
-/* 设计令牌 v2.0：Halo 浅色圆角工作台，与 docs/plans/2026-08-02-Halo风格全量视觉改造计划.md 对齐。 */
+/* 设计令牌 v3.0：Data Dense 数据密集工作台，与 docs/plans/Design Tokens.md v3.0 逐值对齐。 */
 :root {
-  --color-primary-50: #f3f1ff;
-  --color-primary-100: #e7e3ff;
-  --color-primary-200: #cbc4ff;
-  --color-primary-300: #a99dff;
-  --color-primary-400: #7e70fb;
-  --color-primary-500: #5749f4;
-  --color-primary-600: #4639d8;
-  --color-primary-700: #352bb0;
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
 
   --color-secondary-50: #f0fdfa;
   --color-secondary-100: #ccfbf1;
@@ -33,51 +33,58 @@
   --color-info-border: #bae6fd;
   --color-info-text: #0369a1;
 
+  /* slate 中性色：gray-400 白底对比度 2.9:1 不达 WCAG AA，仅占位/角标/装饰。 */
   --color-white: #ffffff;
-  --color-gray-50: #fafafb;
-  --color-gray-100: #f5f5f5;
-  --color-gray-200: #e1e2e5;
-  --color-gray-300: #c5c5cb;
-  --color-gray-400: #939399;
-  --color-gray-500: #616167;
-  --color-gray-700: #403f51;
-  --color-gray-900: #2a2933;
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-700: #1e293b;
+  --color-gray-900: #0f172a;
 
-  --bg-page: var(--color-white);
+  --bg-page: var(--color-gray-50);
   --bg-card: var(--color-white);
-  --bg-subtle: var(--color-gray-100);
+  --bg-subtle: var(--color-gray-50);
   --bg-tile: var(--color-gray-100);
   --text-title: var(--color-gray-900);
   --text-body: var(--color-gray-700);
   --text-secondary: var(--color-gray-500);
+  /* 仅占位/角标，禁止用于正文与表格数据。 */
+  --text-tertiary: var(--color-gray-400);
   --text-placeholder: var(--color-gray-400);
-  --border-default: var(--color-gray-300);
+  --border-default: var(--color-gray-200);
   --border-hover: var(--color-primary-300);
   --border-focus: var(--color-primary-500);
+  --ring-focus: 0 0 0 1px var(--color-primary-500);
 
-  --chart-1: #5749f4;
+  /* 图表色板：索引语义锁死，chart-3=未转化、chart-6=转化（ScreenSankeyOrbit 按索引引用），前 6 位禁止重排。 */
+  --chart-1: #3b82f6;
   --chart-2: #14b8a6;
   --chart-3: #f59e0b;
-  --chart-4: #8b5cf6;
-  --chart-5: #ec4899;
+  --chart-4: #64748b;
+  --chart-5: #0ea5e9;
   --chart-6: #22c55e;
   --chart-7: #f97316;
-  --chart-8: #06b6d4;
+  --chart-8: #94a3b8;
   --chart-grid: var(--color-gray-200);
   --chart-axis-text: var(--color-gray-500);
 
-  --font-family-base: "Inter", "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
-  --font-family-number: "DIN Alternate", "Roboto Mono", "SF Mono", monospace;
+  /* Data Dense 字体栈：禁用 Inter / Roboto / Geist。 */
+  --font-family-base: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-family-number: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
   --font-family-code: "JetBrains Mono", "Fira Code", Consolas, monospace;
 
+  /* micro 仅图表刻度/角标；24 为全场唯一 hero 数字上限。 */
+  --font-size-micro: 10px;
   --font-size-xs: 12px;
   --font-size-sm: 13px;
   --font-size-md: 14px;
   --font-size-lg: 16px;
-  --font-size-xl: 20px;
-  --font-size-2xl: 24px;
-  --font-size-3xl: 32px;
-  --font-size-4xl: 40px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-3xl: 24px;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -93,19 +100,21 @@
   --space-10: 40px;
   --space-12: 48px;
 
-  --radius-sm: 6px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
-  --radius-card: 24px;
-  --radius-panel: 40px;
+  /* Data Dense：全系 4px；radius-full 仅限正圆几何元素（status-dot/live-dot/spinner），禁止 pill 徽章。 */
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-card: 4px;
+  --radius-panel: 4px;
   --radius-full: 999px;
 
-  --shadow-xs: 0 1px 2px 0 rgb(42 41 51 / 4%);
-  --shadow-sm: 0 8px 24px -20px rgb(42 41 51 / 24%), 0 1px 2px rgb(42 41 51 / 5%);
-  --shadow-md: 0 18px 42px -28px rgb(42 41 51 / 30%), 0 4px 12px -8px rgb(42 41 51 / 14%);
-  --shadow-lg: 0 28px 72px -42px rgb(42 41 51 / 38%), 0 10px 24px -18px rgb(42 41 51 / 22%);
-  --shadow-primary: 0 16px 36px -22px rgb(87 73 244 / 48%);
+  /* Data Dense：装饰阴影清零；md/lg/primary 为 deprecated 别名，新代码禁用。 */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 4%);
+  --shadow-sm: 0 1px 2px 0 rgb(15 23 42 / 6%);
+  --shadow-md: var(--shadow-sm); /* deprecated：新代码用 --shadow-sm */
+  --shadow-lg: var(--shadow-sm); /* deprecated：新代码用 --shadow-sm */
+  --shadow-primary: none; /* deprecated：主按钮不再使用阴影 */
 
   --motion-duration-fast: 150ms;
   --motion-duration-base: 250ms;
@@ -123,21 +132,22 @@
 
   --layout-sidebar-width: 240px;
   --layout-sidebar-collapsed: 64px;
-  --layout-header-height: 64px;
+  --layout-header-height: 56px;
   --layout-content-max: 1440px;
-  --layout-page-padding: 24px;
-  --control-height-sm: 28px;
-  --control-height-md: 36px;
-  --control-height-lg: 44px;
-  --tag-height-sm: 22px;
-  --tag-height-md: 24px;
+  --layout-page-padding: 16px;
+  --control-height-sm: 24px;
+  --control-height-md: 28px;
+  --control-height-lg: 34px;
+  --tag-height-sm: 20px;
+  --tag-height-md: 22px;
   --icon-size-sm: 16px;
   --icon-size-md: 18px;
   --icon-size-lg: 22px;
-  --chart-height-sm: 260px;
-  --chart-height-md: 280px;
-  --chart-height-lg: 320px;
-  --chart-height-modal: 520px;
+  --chart-height-sm: 220px;
+  --chart-height-md: 240px;
+  --chart-height-lg: 280px;
+  --chart-height-modal: 480px;
+  --chart-height-hero: 400px;
 
   /* 旧别名：迁移期保持页面兼容，业务代码新建时应使用语义令牌。 */
   --color-bg: var(--bg-page);
@@ -148,13 +158,14 @@
   --color-text-inverse: var(--color-white);
   --color-primary: var(--color-primary-500);
   --color-primary-soft: var(--color-primary-50);
+  --color-secondary: var(--color-secondary-500);
   --color-tile: var(--bg-tile);
   --color-hover: var(--bg-subtle);
   --color-code-bg: var(--bg-subtle);
   --color-warning-soft: var(--color-warning-bg);
   --color-warning-soft-border: var(--color-warning-border);
-  --color-code-dark-bg: #1a182e;
-  --color-code-dark-text: #f2f3f0;
+  --color-code-dark-bg: #0f172a;
+  --color-code-dark-text: #e2e8f0;
   --color-shap-pos: var(--color-primary-500);
   --color-shap-neg: var(--color-danger);
   --color-chart-1: var(--chart-1);
@@ -170,7 +181,8 @@
   --sider-width: var(--layout-sidebar-width);
   --content-max-width: var(--layout-content-max);
   --chart-height: var(--chart-height-md);
-  --radius-pill: var(--radius-full);
+  /* 防回潮：pill 别名不再指向 full，新徽章一律方角。 */
+  --radius-pill: var(--radius-sm);
 
   /* Element Plus 仅作为基础控件，主题值仍由本文件统一控制。 */
   --el-color-primary: var(--color-primary-500);
@@ -183,11 +195,20 @@
   --el-color-warning: var(--color-warning);
   --el-color-danger: var(--color-danger);
   --el-border-color: var(--border-default);
+  --el-border-color-light: var(--color-gray-200);
+  --el-border-color-lighter: var(--color-gray-100);
   --el-fill-color-light: var(--bg-subtle);
   --el-text-color-primary: var(--text-title);
   --el-text-color-regular: var(--text-body);
   --el-text-color-secondary: var(--text-secondary);
+  --el-text-color-placeholder: var(--color-gray-400);
+  --el-font-size-base: var(--font-size-sm);
   --el-border-radius-base: var(--radius-md);
+  --el-border-radius-small: 2px;
+  --el-border-radius-round: var(--radius-sm);
+  --el-component-size: 28px;
+  --el-component-size-small: 24px;
+  --el-component-size-large: 34px;
 }
 
 .tabular-nums { font-variant-numeric: tabular-nums; }

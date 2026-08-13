@@ -405,12 +405,12 @@ const summaryItems = computed<PiSummaryItem[]>(() => {
 <style scoped>
 .pi-summary,
 .config-section {
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1.2fr;
-  gap: var(--space-4);
+  gap: var(--space-3);
   align-items: start;
 }
 .grid-2 > * {

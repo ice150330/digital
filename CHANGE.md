@@ -26,6 +26,24 @@
 
 ## 变更日志
 
+## 2026-08-13 — 设计系统迁移 Halo v2 → Data Dense v3
+
+- **类型：** design / refactor / docs
+- **范围：** `docs/plans/Design Tokens.md`、`DESIGN.md`、`AGENTS.md`、`frontend/src/styles/`、`frontend/src/utils/chartTheme.ts`、`frontend/src/components/`、`frontend/src/views/`、`frontend/src/layouts/`
+- **摘要：**
+  - 令牌换血（v3.0）：主色紫罗兰 `#5749f4` → 数据蓝 `#3b82f6`（8 级蓝阶）；中性暖灰 → slate（边框 `#e2e8f0`、页面底 `#f8fafc` 托白卡）；圆角全系 4px 并禁止 pill 徽章（`--radius-full` 仅限正圆几何元素）；装饰阴影清零（md/lg/primary 降级为 deprecated 别名）；focus 统一 1px 蓝环 `--ring-focus`；字号阶梯压缩为 10–24px（KPI 32→20，PredictResultCard 概率值 24 为全场唯一 hero 数字）；页面留白 24→16、控件高 28/36/44→24/28/34、图表高 220/240/280/480 + hero 400；字体栈去 Inter/Roboto Mono 改 system-ui / ui-monospace。
+  - 图表色板改蓝锚定 8 色（删紫 `#8b5cf6`/粉 `#ec4899`），`chartTheme.ts` 双写同步；索引语义锁死（chart-3=未转化、chart-6=转化）。
+  - Element Plus 覆盖密度压缩：el-tag 去胶囊改方角色码徽章、el-table 斑马纹 `#f8fafc` + 紧凑行高 + 单元格 12px、el-button 去阴影、输入框 focus 3px 光晕改 1px 蓝环；补钉 `--el-border-radius-round` 等 EP 变量防大圆角回潮。
+  - 共享组件去违规：ChartCard/DisclaimerBanner 删单侧粗边条、KpiCard/EmptyState 紧凑化、Tag/RunIdChip/AgentMessage 等去 pill；顺带修复两个潜伏 bug（`--text-tertiary`、`--color-secondary` 引用未定义变量）。
+  - `/screen` 解散 orbit 徽章体系（删装饰圆环/渐变底/168px 悬浮徽章/40px 大圆角面板），重构为高密度网格：6 格 KPI 指标行（StatStrip）+ 中央桑基大主图（400px）+ 右侧洞察列表 + 2×2 小图网格（新组件 `ScreenMiniGrid.vue`）；桑基 option 构造与 props 签名不变。
+  - 断点归一收尾：清除 RuleRow 860px、ScreenSankeyOrbit 1180px 两个离群值，全站仅 1280/992/640/520 四档。
+- **原因：** 用户要求将前端设计风格与设计方式切换为 Data Dense（数据密集）规范：信息密度最大化、紧凑间距小尺寸、状态色编码、操作直接可见、禁装饰渐变/阴影/大圆角/胶囊。
+- **影响：** 全站视觉语言切换；骨架 shimmer 渐变作为功能性加载反馈登记为白名单豁免；主按钮白字/`#3b82f6` 对比度 3.68:1 按规范原值执行（行业通行值，正文级对比度由 `#1e293b`/`#64748b` 保证 AA）；`--color-gray-400`/`--text-tertiary` 白底不达 AA，仅占位/角标使用。
+- **破坏性：** 有（设计令牌层）——删除 `--font-size-4xl`（零引用）；`--shadow-md/lg/primary` 降为 deprecated 别名；`--radius-pill` 重指向 `--radius-sm`；`--bg-page` 由白改浅灰。无 API/数据口径变化。
+- **关联：** 计划文件 `C:\Users\39574\.claude\plans\jaunty-wondering-karp.md`
+- **Pencil 同步：** 本次未同步 `pen/ui.pen`（Pencil MCP 本会话不可用，且画布改名已在 DESIGN.md §11 登记）；下次 Pencil 可用时按 Data Dense v3 补齐三画布。
+- **验证：** `cd frontend && npm run build` 通过（仅 Vite chunk >500 kB 非阻塞警告）。grep 自检全绿：大圆角硬编码（`border-radius: 12px+`）0 命中；`radius-full` 仅 4 处正圆几何豁免（button-spinner/live-dot/.dot/status-dot）；装饰渐变仅 3 处 shimmer 白名单（KpiCard/LoadingState/el-skeleton），conic/radial 0 命中；字体栈含 Inter/Roboto/Geist 的 0 命中；断点仅 1280/992/640/520 四档（grep 命中的 76/128/240px 为元素 max-width 非断点）；hex 硬编码仅 chartTheme.ts；`var(--*)` 引用集与 tokens 定义集 diff 为空（`--text-tertiary`/`--color-secondary` 两个未定义变量已闭合）。死类残留检查 0 命中（screen-canvas/orbit-*/metric-tile 等旧类已清）。后端零改动，无需 pytest。
+
 ## 2026-08-12 — 布局与前端内容优化
 
 - **类型：** feat / refactor / design / docs

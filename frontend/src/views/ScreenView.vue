@@ -6,6 +6,7 @@
 import { computed, onMounted, ref } from 'vue'
 import Icon from '../components/Icon.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
+import ScreenMiniGrid from '../components/ScreenMiniGrid.vue'
 import ScreenSankeyOrbit from '../components/ScreenSankeyOrbit.vue'
 import StatStrip from '../components/StatStrip.vue'
 import Tag from '../components/Tag.vue'
@@ -96,6 +97,8 @@ const statusTone = computed<BadgeTone>(() => {
 })
 
 const metricStrip = computed(() => [
+  { label: '总样本', value: f2(dashboard.value?.kpis.n_rows), hint: '导入营销行' },
+  { label: '描述性转化率', value: pct2(dashboard.value?.kpis.positive_rate), hint: 'Conversion=1 占比' },
   { label: '总广告支出', value: money(dashboard.value?.kpis.total_ad_spend), hint: 'AdSpend 合计' },
   { label: '平均点击率', value: pct2(dashboard.value?.kpis.avg_ctr), hint: 'ClickThroughRate' },
   { label: '访问深度', value: f2(dashboard.value?.kpis.avg_pages_per_visit), hint: 'PagesPerVisit 均值' },
@@ -146,20 +149,18 @@ const failKeys = computed(() => Object.keys(fails.value))
       </template>
     </PageHeaderBar>
 
-    <section class="screen-canvas">
-      <ScreenSankeyOrbit
-        v-if="overview"
-        :overview="overview"
-        :dashboard="dashboard"
-        :health="health"
-        :issues="screenIssues"
-      />
+    <section class="kpi-row">
+      <StatStrip :items="metricStrip" />
+    </section>
+
+    <section class="screen-main">
+      <ScreenSankeyOrbit v-if="overview" :overview="overview" :dashboard="dashboard" />
       <div v-else class="screen-loading">
         <span class="status-dot" :class="`tone-${statusTone}`" />
         <span>正在加载桑基大屏数据</span>
       </div>
 
-      <aside class="insight-rail">
+      <aside class="insight-list">
         <div class="insight-card">
           <p class="eyebrow">Narrative</p>
           <h3>答辩开场三句话</h3>
@@ -167,12 +168,12 @@ const failKeys = computed(() => Object.keys(fails.value))
             <li v-for="item in insightItems" :key="item">{{ item }}</li>
           </ol>
         </div>
-        <div class="insight-card compact">
+        <div class="insight-card">
           <p class="eyebrow">Data Caliber</p>
           <p>{{ dashboard?.caliber || '口径加载中：大屏仅展示横截面描述、模型估计与产物指标。' }}</p>
         </div>
 
-        <div v-if="segments" class="insight-card compact">
+        <div v-if="segments" class="insight-card">
           <p class="eyebrow">分群摘要</p>
           <p v-if="largestCluster">
             最大簇：{{ largestCluster.name }}（{{ pct2(largestCluster.share) }}）
@@ -182,7 +183,7 @@ const failKeys = computed(() => Object.keys(fails.value))
           <p v-else class="muted">暂无分群结果</p>
         </div>
 
-        <div v-if="budget" class="insight-card compact">
+        <div v-if="budget" class="insight-card">
           <p class="eyebrow">预算模拟</p>
           <p v-if="budgetHeadline">
             推荐触达 K：{{ budgetHeadline.k }}
@@ -192,7 +193,7 @@ const failKeys = computed(() => Object.keys(fails.value))
           <p v-else class="muted">暂无预算模拟结果</p>
         </div>
 
-        <div v-if="piStatus" class="insight-card compact">
+        <div v-if="piStatus" class="insight-card">
           <p class="eyebrow">Pi 状态</p>
           <p>
             <Tag :tone="piReady ? 'success' : 'warning'">{{ piReady ? 'Pi 已就绪' : 'Pi 可降级' }}</Tag>
@@ -207,14 +208,12 @@ const failKeys = computed(() => Object.keys(fails.value))
         </div>
 
         <div class="insight-card warning">
-          <Icon icon="uil:exclamation-triangle" size="lg" />
+          <Icon icon="uil:exclamation-triangle" size="md" />
           <p>以下洞察基于历史数据中的相关关系与模型估计，不构成因果证明，也不构成实际投放收益承诺。</p>
         </div>
       </aside>
     </section>
 
-    <section class="metric-strip">
-      <StatStrip :items="metricStrip" />
-    </section>
+    <ScreenMiniGrid v-if="overview" :overview="overview" :dashboard="dashboard" :health="health" :issues="screenIssues" />
   </div>
 </template>

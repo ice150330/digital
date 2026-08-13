@@ -237,12 +237,12 @@ onMounted(load)
 </template>
 
 <style scoped>
-.card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: var(--space-4); }
+.card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: var(--space-3); }
 .insight-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: var(--space-4);
-  margin-bottom: var(--space-4);
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
 }
 @media (max-width: 1280px) {
   .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -251,7 +251,7 @@ onMounted(load)
 }
 @media (max-width: 640px) { .card-grid { grid-template-columns: 1fr; } .histogram-grid { grid-template-columns: 1fr; } }
 .quality-list { max-height: 280px; overflow-y: auto; }
-.histogram-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+.histogram-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
 .section-header-with-controls { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 .dim-controls { display: flex; align-items: center; gap: var(--space-2); }
 .dim-select { width: 140px; }

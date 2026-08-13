@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import BaseChart from './BaseChart.vue'
-import { COLOR_HEAT_LOW, COLOR_PRIMARY } from '../utils/chartTheme'
+import { COLOR_HEAT_LOW, COLOR_PRIMARY, COLOR_SURFACE } from '../utils/chartTheme'
 import type { CrossMatrixData } from '../api/data'
 
 const props = defineProps<{
@@ -45,7 +45,7 @@ const option = computed(() => {
       orient: 'horizontal',
       left: 'center',
       bottom: '0%',
-      inRange: { color: [COLOR_HEAT_LOW, '#fff', COLOR_PRIMARY] },
+      inRange: { color: [COLOR_HEAT_LOW, COLOR_SURFACE, COLOR_PRIMARY] },
       formatter: (value: number) => `${(value * 100).toFixed(0)}%`,
     },
     series: [{

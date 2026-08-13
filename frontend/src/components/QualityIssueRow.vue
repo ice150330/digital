@@ -26,7 +26,7 @@ withDefaults(defineProps<{
 <style scoped>
 .quality-row { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--border-default); }
 .quality-row:last-child { border-bottom: 0; }
-.quality-icon { display: grid; width: var(--space-8); height: var(--space-8); flex: 0 0 auto; place-items: center; border-radius: var(--radius-lg); }
+.quality-icon { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border-radius: var(--radius-sm); }
 .severity-warning { background: var(--color-warning-bg); color: var(--color-warning-text); }
 .severity-danger { background: var(--color-danger-bg); color: var(--color-danger-text); }
 .severity-info { background: var(--color-info-bg); color: var(--color-info-text); }

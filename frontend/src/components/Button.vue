@@ -38,24 +38,24 @@ withDefaults(defineProps<{
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   cursor: pointer;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   line-height: 1;
-  transition: background var(--motion-duration-fast) var(--motion-easing-default), border-color var(--motion-duration-fast) var(--motion-easing-default), color var(--motion-duration-fast) var(--motion-easing-default), box-shadow var(--motion-duration-fast) var(--motion-easing-default);
+  transition: background var(--motion-duration-fast) var(--motion-easing-default), border-color var(--motion-duration-fast) var(--motion-easing-default), color var(--motion-duration-fast) var(--motion-easing-default);
 }
 .app-button:focus-visible {
-  outline: 2px solid var(--color-primary-300);
-  outline-offset: 2px;
+  outline: 1px solid var(--color-primary-500);
+  outline-offset: 1px;
 }
 .app-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
-.is-sm { min-height: var(--control-height-sm); padding: 0 var(--space-3); font-size: var(--font-size-sm); }
-.is-md { min-height: var(--control-height-md); padding: 0 var(--space-4); }
-.is-lg { min-height: var(--control-height-lg); padding: 0 var(--space-6); font-size: var(--font-size-lg); }
-.is-primary { background: var(--color-primary-500); color: var(--color-white); box-shadow: var(--shadow-xs); }
-.is-primary:hover:not(:disabled) { background: var(--color-primary-600); box-shadow: var(--shadow-primary); }
+.is-sm { min-height: var(--control-height-sm); padding: 0 var(--space-2); font-size: var(--font-size-xs); }
+.is-md { min-height: var(--control-height-md); padding: 0 var(--space-3); }
+.is-lg { min-height: var(--control-height-lg); padding: 0 var(--space-4); font-size: var(--font-size-md); }
+.is-primary { background: var(--color-primary-500); color: var(--color-white); }
+.is-primary:hover:not(:disabled) { background: var(--color-primary-600); }
 .is-default { background: var(--bg-card); border-color: var(--border-default); color: var(--text-body); }
 .is-default:hover:not(:disabled), .is-outline:hover:not(:disabled) { border-color: var(--border-hover); color: var(--color-primary-700); background: var(--color-primary-50); }
 .is-outline { background: transparent; border-color: var(--border-default); color: var(--text-body); }

@@ -28,7 +28,7 @@ const emit = defineEmits<{ retry: [item: ToolTraceItem] }>()
 <style scoped>
 .tool-step { display: flex; gap: var(--space-3); padding: var(--space-3) 0; border-bottom: 1px solid var(--border-default); }
 .tool-step:last-child { border-bottom: 0; }
-.step-icon { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: var(--radius-full); background: var(--color-primary-50); color: var(--color-primary-600); }
+.step-icon { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border-radius: var(--radius-sm); background: var(--color-primary-50); color: var(--color-primary-600); }
 .tool-step.failed .step-icon { background: var(--color-danger-bg); color: var(--color-danger); }
 .tool-step.running .step-icon { background: var(--color-warning-bg); color: var(--color-warning); }
 .step-content { min-width: 0; flex: 1; }

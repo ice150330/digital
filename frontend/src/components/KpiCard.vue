@@ -34,15 +34,15 @@ defineProps<{
   background: var(--bg-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-card);
-  padding: var(--space-4) var(--space-5);
-  box-shadow: var(--shadow-sm);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-xs);
 }
 .label {
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
 }
 .kpi-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-2); }
-.kpi-icon { display: grid; width: var(--space-8); height: var(--space-8); place-items: center; border-radius: var(--radius-lg); }
+.kpi-icon { display: grid; width: 28px; height: 28px; place-items: center; border-radius: var(--radius-sm); }
 .tone-primary { background: var(--color-primary-50); color: var(--color-primary-600); }
 .tone-secondary { background: var(--color-secondary-50); color: var(--color-secondary-600); }
 .tone-success { background: var(--color-success-bg); color: var(--color-success-text); }
@@ -52,7 +52,7 @@ defineProps<{
 .value {
   color: var(--text-title);
   font-family: var(--font-family-number);
-  font-size: var(--font-size-3xl);
+  font-size: var(--font-size-2xl);
   font-weight: var(--font-weight-semibold);
   line-height: 1.2;
 }
@@ -68,7 +68,7 @@ defineProps<{
   animation: shimmer var(--motion-duration-slow) var(--motion-easing-default) infinite;
 }
 .skeleton-label { width: 42%; height: var(--space-3); }
-.skeleton-value { width: 64%; height: var(--font-size-3xl); margin-top: var(--space-2); }
+.skeleton-value { width: 64%; height: var(--font-size-2xl); margin-top: var(--space-2); }
 .skeleton-hint { width: 54%; height: var(--space-2); margin-top: var(--space-2); }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }

@@ -168,9 +168,8 @@ const option = computed(() => {
 .chart-card {
   position: relative;
   margin: var(--space-2) 0;
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-3);
   border: 1px solid var(--border-default);
-  border-left: var(--space-1) solid var(--color-primary-500);
   border-radius: var(--radius-card);
   background: var(--bg-card);
   box-shadow: var(--shadow-xs);
@@ -199,7 +198,7 @@ const option = computed(() => {
   text-align: center;
 }
 .chart-modal { position: fixed; z-index: var(--z-modal); inset: 0; display: grid; place-items: center; padding: var(--space-6); background: rgb(15 23 42 / 42%); }
-.chart-modal-inner { width: min(960px, 100%); padding: var(--space-5); border-radius: var(--radius-card); background: var(--bg-card); box-shadow: var(--shadow-lg); }
+.chart-modal-inner { width: min(960px, 100%); padding: var(--space-4); border-radius: var(--radius-card); background: var(--bg-card); box-shadow: var(--shadow-sm); }
 .chart-modal-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); color: var(--text-title); font-size: var(--font-size-lg); }
 .chart-modal-foot { margin: 0; color: var(--text-secondary); font-size: var(--font-size-xs); }
 </style>

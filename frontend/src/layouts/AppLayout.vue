@@ -136,7 +136,7 @@ defineExpose({ refreshHealth, health })
 }
 .header {
   height: var(--layout-header-height);
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;

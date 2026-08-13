@@ -1,28 +1,29 @@
 /**
- * 图表配色单一真相：与 Halo v2 tokens.css 逐值对齐。
+ * 图表配色单一真相：与 Data Dense v3 tokens.css 逐值对齐。
  * /screen 已回到浅色工作台框架，不再维护独立暗色 screen 分支。
+ * 索引语义锁死：CHART_COLORS[2]=未转化、[5]=转化（ScreenSankeyOrbit 按索引引用），前 6 位禁止重排。
  */
 
-export const CHART_COLORS = ['#5749f4', '#14b8a6', '#f59e0b', '#8b5cf6', '#ec4899', '#22c55e', '#f97316', '#06b6d4']
+export const CHART_COLORS = ['#3b82f6', '#14b8a6', '#f59e0b', '#64748b', '#0ea5e9', '#22c55e', '#f97316', '#94a3b8']
 
-export const COLOR_PRIMARY = '#5749f4'
+export const COLOR_PRIMARY = '#3b82f6'
 export const COLOR_SUCCESS = '#22c55e'
 export const COLOR_WARNING = '#f59e0b'
 export const COLOR_DANGER = '#ef4444'
 export const COLOR_INFO = '#0ea5e9'
-export const COLOR_AXIS = '#e1e2e5'
-export const COLOR_AXIS_LABEL = '#616167'
-export const COLOR_SPLIT_LINE = '#e1e2e5'
-export const COLOR_TEXT = '#403f51'
+export const COLOR_AXIS = '#e2e8f0'
+export const COLOR_AXIS_LABEL = '#64748b'
+export const COLOR_SPLIT_LINE = '#e2e8f0'
+export const COLOR_TEXT = '#1e293b'
 
-export const COLOR_SHAP_POS = '#5749f4'
+export const COLOR_SHAP_POS = '#3b82f6'
 export const COLOR_SHAP_NEG = '#ef4444'
 
 /** 卡片/图表表面色（对齐 tokens.css --color-surface） */
 export const COLOR_SURFACE = '#ffffff'
 /** 热力图渐变浅色端（visualMap inRange 起点） */
-export const COLOR_HEAT_LOW = '#f5f5f5'
-export const COLOR_HEAT_LABEL = '#2a2933'
+export const COLOR_HEAT_LOW = '#f1f5f9'
+export const COLOR_HEAT_LABEL = '#0f172a'
 export const COLOR_HEAT_BORDER = 'rgba(255,255,255,0.88)'
 
 export type ChartTheme = 'default'

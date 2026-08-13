@@ -23,18 +23,18 @@ const emit = defineEmits<{ action: [] }>()
 
 <style scoped>
 .empty {
-  padding: var(--space-12) var(--space-6);
+  padding: var(--space-5) var(--space-4);
   text-align: center;
   background: var(--bg-card);
   border: 1px dashed var(--border-default);
   border-radius: var(--radius-card);
   color: var(--text-body);
 }
-.empty-icon { display: grid; width: var(--space-12); height: var(--space-12); margin: 0 auto var(--space-3); place-items: center; border-radius: var(--radius-full); background: var(--bg-subtle); color: var(--text-secondary); }
+.empty-icon { display: grid; width: 36px; height: 36px; margin: 0 auto var(--space-2); place-items: center; border-radius: var(--radius-sm); background: var(--bg-subtle); color: var(--text-secondary); }
 .title {
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
   color: var(--text-title);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
 }
 .desc {

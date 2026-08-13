@@ -143,7 +143,7 @@ onMounted(() => run())
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
 }
 @media (max-width: 992px) {
   .kpis {

@@ -14,7 +14,7 @@ withDefaults(defineProps<{ content?: string }>(), {
 </template>
 
 <style scoped>
-.disclaimer-banner { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-warning-border); border-left: var(--space-1) solid var(--color-warning); border-radius: var(--radius-md); background: var(--color-warning-bg); color: var(--text-body); font-size: var(--font-size-xs); line-height: 1.6; }
+.disclaimer-banner { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-warning-border); border-radius: var(--radius-md); background: var(--color-warning-bg); color: var(--text-body); font-size: var(--font-size-xs); line-height: 1.6; }
 .disclaimer-banner span { min-width: 0; overflow-wrap: anywhere; }
 .disclaimer-banner :deep(.app-icon) { flex: 0 0 auto; margin-top: var(--space-1); color: var(--color-warning); }
 </style>

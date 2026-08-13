@@ -27,17 +27,17 @@ const percent = computed(() => Math.max(0, Math.min(100, props.result.proba * 10
 </template>
 
 <style scoped>
-.predict-card { padding: var(--space-5); border: 1px solid var(--color-primary-100); border-radius: var(--radius-card); background: var(--bg-card); box-shadow: var(--shadow-sm); }
+.predict-card { padding: var(--space-3); border: 1px solid var(--color-primary-100); border-radius: var(--radius-card); background: var(--bg-card); box-shadow: var(--shadow-xs); }
 .predict-card header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
-.predict-title { display: flex; align-items: center; gap: var(--space-3); }
-.predict-title > span { display: grid; width: var(--space-8); height: var(--space-8); place-items: center; border-radius: var(--radius-lg); background: var(--color-primary-50); color: var(--color-primary-600); }
+.predict-title { display: flex; align-items: center; gap: var(--space-2); }
+.predict-title > span { display: grid; width: 28px; height: 28px; place-items: center; border-radius: var(--radius-sm); background: var(--color-primary-50); color: var(--color-primary-600); }
 .predict-title strong, .predict-title small { display: block; }
 .predict-title strong { color: var(--text-title); font-size: var(--font-size-md); }
 .predict-title small { margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--font-size-xs); }
-.probability { display: flex; align-items: end; justify-content: space-between; margin-top: var(--space-5); }
+.probability { display: flex; align-items: end; justify-content: space-between; margin-top: var(--space-4); }
 .probability span { color: var(--text-secondary); font-size: var(--font-size-sm); }
 .probability strong { color: var(--color-primary-700); font-family: var(--font-family-number); font-size: var(--font-size-3xl); }
-.probability-rail { height: var(--space-2); margin-top: var(--space-3); overflow: hidden; border-radius: var(--radius-full); background: var(--bg-subtle); }
+.probability-rail { height: 6px; margin-top: var(--space-2); overflow: hidden; border-radius: var(--radius-sm); background: var(--bg-subtle); }
 .probability-rail span { display: block; height: 100%; border-radius: inherit; background: var(--color-primary-500); transition: width var(--motion-duration-base) var(--motion-easing-out); }
 .probability-scale { display: flex; justify-content: space-between; margin-top: var(--space-1); color: var(--text-secondary); font-family: var(--font-family-number); font-size: var(--font-size-xs); }
 .predict-card footer { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-4); }

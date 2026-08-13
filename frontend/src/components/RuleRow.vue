@@ -31,7 +31,7 @@ function splitItems(value: string): string[] {
 </template>
 
 <style scoped>
-.rule-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-5); padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
+.rule-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: var(--space-3); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
 .rule-expression { display: flex; min-width: 0; align-items: center; gap: var(--space-3); }
 .rule-items { display: flex; min-width: 0; flex-wrap: wrap; gap: var(--space-2); }
 .rule-arrow { display: inline-flex; flex: 0 0 auto; color: var(--color-primary-500); }
@@ -41,5 +41,5 @@ function splitItems(value: string): string[] {
 .rule-metrics span { color: var(--text-secondary); font-size: var(--font-size-xs); }
 .rule-metrics strong { margin-top: var(--space-1); color: var(--text-title); font-family: var(--font-family-number); font-size: var(--font-size-sm); }
 .rule-metrics .lift strong { color: var(--color-primary-700); }
-@media (max-width: 860px) { .rule-row { grid-template-columns: 1fr; } .rule-metrics { justify-content: start; } }
+@media (max-width: 992px) { .rule-row { grid-template-columns: 1fr; } .rule-metrics { justify-content: start; } }
 </style>

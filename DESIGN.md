@@ -1,10 +1,10 @@
-# DESIGN.md — Halo v2 前端设计系统与 UI 约束
+# DESIGN.md — Data Dense v3 前端设计系统与 UI 约束
 
 > **地位：** 本仓库前端（Vue SPA）的视觉、页面、组件、图表与交互权威文档。
 > **不在本文范围：** 系统架构、数据/ML、FastAPI、Agent/Pi 后端逻辑，统一见 `AGENTS.md`。
 > **配套文件：** 范围见 `docs/plans/`；变更见 `CHANGE.md`；视觉参考库见 `pen/ui.pen`。
-> **令牌源：** `docs/plans/Design Tokens.md` v2.0；运行时实现为 `frontend/src/styles/tokens.css`。
-> **版本：** v0.12.0（2026-08-12）— 落地页统一为 `/screen`，原首页迁移到 `/overview`；新增 `SectionCard` / `DistributionBars` / `CrossMatrixHeatmap` / `PdpIceChart`；响应式断点统一为 1280/992/640/520；大屏右侧 rail、首页分布/交叉矩阵、模型页 PDP/ICE、Pi 工具清单等补齐。前序 v0.11.1（2026-08-02）的 Markdown 消息、折叠契约、会话列表增强保持不变。
+> **令牌源：** `docs/plans/Design Tokens.md` v3.0；运行时实现为 `frontend/src/styles/tokens.css`。
+> **版本：** v0.13.0（2026-08-13）— 全站设计系统由 Halo v2 迁移为 **Data Dense v3 数据密集**：主色 `#3b82f6` 蓝 + slate 中性色、圆角全系 4px（禁 pill）、装饰阴影/渐变清零、字号阶梯 10–24px、页面 16px 紧凑留白、控件 24/28/34 高、表格斑马纹 `#f8fafc` 紧凑行；`/screen` 解散 orbit 徽章体系，重构为「KPI 指标行 + 中央桑基大主图 + 右侧洞察列表 + 2×2 小图网格」高密度网格。前序 v0.12.0 的路由与组件格局保持不变。
 
 ---
 
@@ -29,7 +29,14 @@
 
 ## 1. 产品前端目标
 
-digital 前端是答辩可演示的数据分析工作台，风格定调为 **Halo 浅色 · 圆角卡片 · 中央图表叙事 · 工具接地**。它不是营销落地页，也不是纯聊天壳。
+digital 前端是答辩可演示的数据分析工作台，风格定调为 **Data Dense 数据密集 · 紧凑高效 · 状态色编码 · 工具接地**。它不是营销落地页，也不是纯聊天壳。
+
+Data Dense 核心理念：
+
+- **信息密度最大化**：有限屏幕内展示最多有效信息，禁止大面积空白。
+- **扫描效率**：行高紧凑、对齐严格，支持快速垂直扫描。
+- **操作即时性**：常用操作直接可见，不藏进下拉菜单。
+- **状态可视化**：颜色编码传递状态（浅底 + 文字色 + 4px 方角徽章），无需阅读文字即可理解。
 
 核心体验：
 
@@ -38,7 +45,7 @@ digital 前端是答辩可演示的数据分析工作台，风格定调为 **Hal
 3. 客户页支持单客预测、SHAP 解释和反事实敏感性分析。
 4. 分群、规则、模拟页承接数据挖掘结论，但不宣称因果收益。
 5. Agent 页展示真实上游 AI 回复、Markdown 消息、默认折叠的五段契约、tool_trace、会话、运行阶段和内联 chart-spec 图表。
-6. `/screen` 作为开场全景：一个重点“唬人”的中央渠道转化桑基图在视觉中心，外围一圈较小图表串起转化、渠道、质量、阶段、划分和默认产物。
+6. `/screen` 作为开场全景：紧凑 KPI 指标行 + 中央渠道转化桑基大主图 + 右侧洞察列表 + 底部 2×2 小图网格，以密度而非装饰撑场面。
 
 ---
 
@@ -64,7 +71,7 @@ digital 前端是答辩可演示的数据分析工作台，风格定调为 **Hal
 
 | 路由 | 名称 | 主要内容 |
 |------|------|----------|
-| `/screen` | 总览大屏 | AppLayout 内的中央渠道转化桑基图、外围小图、右侧洞察、底部指标条 |
+| `/screen` | 总览大屏 | AppLayout 内的紧凑 KPI 指标行、中央渠道转化桑基大主图、右侧洞察列表、2×2 小图网格 |
 | `/overview` | 数据总览 | KPI、渠道、转化分布、质量问题、分布直方图、交叉矩阵、数据概况 |
 | `/models` | 模型实验室 | E0–E8、PR/ROC、校准、混淆矩阵、lift、阈值成本、PDP/ICE |
 | `/customers` | 客户洞察 | 单客预测、SHAP、反事实敏感性分析 |
@@ -79,9 +86,9 @@ digital 前端是答辩可演示的数据分析工作台，风格定调为 **Hal
 
 ```text
 AppLayout
-├─ AppHeader：项目名、健康状态、run_id、runtime
+├─ AppHeader：项目名、健康状态、run_id、runtime（56px）
 ├─ AppSider：五组叙事导航，可折叠
-└─ Main：PageHeaderBar + 内容区（max 1440px，padding 24px）
+└─ Main：PageHeaderBar + 内容区（max 1440px，padding 16px）
 ```
 
 `/screen` 只改变内容区构图，不绕开 header/sidebar；≤520px 时侧栏暂隐，主内容占满手机视口，避免总览大屏被折叠菜单挤压。
@@ -90,13 +97,15 @@ AppLayout
 
 ### 3.1 总览大屏主视觉
 
-`/screen` 的主视觉采用“中心大桑基图 + 外圈小图”：
+`/screen` 的主视觉采用高密度网格构图：
 
-- 中心：`ScreenSankeyOrbit` 使用 ECharts `sankey`，表达“全量样本 → 渠道 → 转化/未转化”的渠道转化分布。
-- 外圈：较小图表围绕中心，包括转化环、渠道强度条、横截面阶段条、质量告警、训练/验证/测试划分和默认 run 状态。
+- 顶部：紧凑 KPI 指标行（复用 `StatStrip`，6 格：总样本、描述性转化率、总广告支出、平均 CTR、访问深度、复购占比）。
+- 中心：`ScreenSankeyOrbit` 使用 ECharts `sankey`，表达“全量样本 → 渠道 → 转化/未转化”的渠道转化分布，为主区最大图（`--chart-height-hero` 400px）。
+- 右侧：洞察列表纵列，承载默认 run、最强渠道、分群、预算、Pi 这类可讲述摘要与失败降级提示。
+- 底部：`ScreenMiniGrid` 2×2 小图网格，包括渠道强度条、横截面阶段条、训练/验证/测试划分、质量告警与默认产物。
 - 数据源：`/data/overview`、`/data/dashboard`、`/health`；桑基 link 值只能由后端返回的渠道样本量和转化率计算。
 - 口径：`dashboard.caliber` 原样展示；横截面阶段小图不得描述成真实用户逐步流失。
-- 响应式：窄屏下中心图与小图改成单列/双列流式排列；≤520px 隐藏侧栏，桑基图切换为纵向紧凑布局，不能相互遮挡或横向溢出。
+- 响应式：≤1280px 主区（桑基+洞察）变单列；≤992px 小图网格单列；≤640px 桑基切换为纵向紧凑布局；≤520px 隐藏侧栏主内容占满视口，不能相互遮挡或横向溢出。
 
 ---
 
@@ -137,13 +146,13 @@ AppLayout
 
 ### 4.1 构图
 
-`/screen` 第一屏必须以中央大图表为主视觉：
+`/screen` 第一屏必须以中央大图表为主视觉，整体为高密度网格：
 
 - 主体：`ScreenSankeyOrbit` 渲染 ECharts `sankey`，名称为“渠道转化桑基大屏”。
-- 中心：桌面桑基主图表达“全量样本 → 渠道 → 转化/未转化”；手机端保持同一数据，但改为纵向紧凑桑基。
-- 外圈：至少 6 个小图表或数据微卡，当前实现为转化环、渠道强度、横截面阶段、质量告警、训练划分、默认产物。
-- 右侧：洞察栏，承载默认 run、最强渠道、分群、预算、Pi 这类可讲述摘要。
-- 底部：指标条，承接口径说明和关键数值。
+- 顶部：6 格紧凑 KPI 指标行（`StatStrip`），承接规模与质量关键数值。
+- 中心：桌面桑基主图（400px 高）表达“全量样本 → 渠道 → 转化/未转化”；手机端保持同一数据，但改为纵向紧凑桑基。
+- 右侧：洞察列表纵列，承载默认 run、最强渠道、分群、预算、Pi 摘要与 `fails` 降级提示。
+- 底部：`ScreenMiniGrid` 2×2 小图网格：渠道强度条、横截面阶段条、训练划分条、质量与默认产物。
 
 ### 4.2 数据
 
@@ -155,11 +164,12 @@ AppLayout
 
 ### 4.3 视觉
 
-- 背景：浅色纸面，不使用独立暗色主题。
-- 卡片：`--radius-card` 24px；主面板可用 `--radius-panel` 40px。
+- 背景：浅灰页面（`--bg-page` = `#f8fafc`）托白色卡片，不使用独立暗色主题。
+- 卡片：`--radius-card` 4px + 1px `--border-default` 边框；阴影最多 `--shadow-xs`，禁用装饰性阴影。
 - 图表：统一浅色轴线与 `--chart-1..8`，不再传入 `screen` 图表主题。
 - 图标：按钮和徽章优先使用 `Icon.vue`，不要用文字块假装图标。
-- 响应式：窄屏下外圈徽章改为网格流式排列，图表不得和文字重叠。
+- 装饰禁令：无渐变底、无轨道圆环、无悬浮徽章、无单侧粗边条、无 pill 胶囊。
+- 响应式：窄屏下主区与小图网格改单列流式排列，图表不得和文字重叠。
 
 ---
 
@@ -189,17 +199,18 @@ AppLayout
 
 | Token | 值 | 用途 |
 |-------|----|------|
-| `--color-primary-500` | `#5749f4` | 主按钮、激活态、桑基主节点 |
+| `--color-primary-500` | `#3b82f6` | 主按钮、激活态、桑基主节点（hover `#2563eb`） |
 | `--color-secondary-500` | `#14b8a6` | 辅助强调、图表第二色 |
-| `--color-gray-50` | `#fafafb` | 弱背景、tile |
-| `--color-gray-100` | `#f5f5f5` | 次级背景 |
-| `--color-gray-300` | `#c5c5cb` | 默认边框 |
-| `--color-gray-500` | `#616167` | 次级文字 |
-| `--color-gray-700` | `#403f51` | 正文 |
-| `--color-gray-900` | `#2a2933` | 标题 |
-| `--bg-page` | `#ffffff` | 页面背景 |
+| `--color-gray-50` | `#f8fafc` | 页面底、斑马纹、表头底、交替行 |
+| `--color-gray-100` | `#f1f5f9` | tile、次级容器 |
+| `--color-gray-200` | `#e2e8f0` | 默认边框 |
+| `--color-gray-400` | `#94a3b8` | 占位/角标（不达 AA，禁正文） |
+| `--color-gray-500` | `#64748b` | 次级文字 |
+| `--color-gray-700` | `#1e293b` | 正文 |
+| `--color-gray-900` | `#0f172a` | 标题 |
+| `--bg-page` | `#f8fafc` | 页面背景（浅灰托白卡） |
 | `--bg-card` | `#ffffff` | 卡片背景 |
-| `--bg-tile` | `#f5f5f5` | 徽章、弱容器 |
+| `--bg-tile` | `#f1f5f9` | 徽章、弱容器 |
 
 语义色：success `#22c55e`、warning `#f59e0b`、danger `#ef4444`、info `#0ea5e9`。浅底、边框、文字态见 `tokens.css`。
 
@@ -207,48 +218,48 @@ AppLayout
 
 `--chart-1..8` 固定为：
 
-`#5749f4`、`#14b8a6`、`#f59e0b`、`#8b5cf6`、`#ec4899`、`#22c55e`、`#f97316`、`#06b6d4`。
+`#3b82f6`、`#14b8a6`、`#f59e0b`、`#64748b`、`#0ea5e9`、`#22c55e`、`#f97316`、`#94a3b8`。
 
-图表实现只从 `frontend/src/utils/chartTheme.ts` 取色。`ChartTheme` 当前只允许 `default`，避免再次分裂出暗色 screen 主题。
+图表实现只从 `frontend/src/utils/chartTheme.ts` 取色。`ChartTheme` 当前只允许 `default`，避免再次分裂出暗色 screen 主题。**索引语义锁死：** `chart-3` = 桑基「未转化」、`chart-6` =「转化」，前 6 位禁止重排。
 
 ### 6.3 字体
 
 | Token | 用途 |
 |-------|------|
-| `--font-family-base` | 正文、表单、导航 |
-| `--font-family-number` | KPI、概率、run_id、表格数值 |
+| `--font-family-base` | 正文、表单、导航（system-ui 栈，不含 Inter/Roboto/Geist） |
+| `--font-family-number` | KPI、概率、run_id、表格数值（ui-monospace 栈 + `.tabular-nums`） |
 | `--font-family-code` | 代码块、日志、审计片段 |
 
-字号从 `12 / 13 / 14 / 16 / 20 / 24 / 32 / 40px` 取用；不要使用 viewport 字号缩放。
+字号从 `10(micro) / 12 / 13 / 14 / 16 / 18 / 20 / 24px` 取用；micro 仅图表刻度与角标；正文 12–13；页标题 18；KPI 20；24 为全场唯一 hero 数字上限。不要使用 viewport 字号缩放。
 
 ### 6.4 间距与圆角
 
-间距基于 4px 栅格：`4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 / 48px`。
+间距基于 4px 栅格：`4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 / 48px`；常用档收敛为 **4/8/12**（gap-1/2/3），卡片 padding 上限 16px，禁止 24px 以上内边距。
 
 圆角：
 
 | Token | 值 | 用途 |
 |-------|----|------|
-| `--radius-sm` | 6px | 小标签 |
-| `--radius-md` | 12px | 按钮、输入框 |
-| `--radius-lg` | 18px | 提示、轻容器 |
-| `--radius-card` | 24px | 卡片 |
-| `--radius-panel` | 40px | 大屏主面板 |
-| `--radius-full` | 999px | 胶囊、状态点 |
+| `--radius-sm` | 4px | 小标签、状态徽章、icon 座 |
+| `--radius-md` | 4px | 按钮、输入框 |
+| `--radius-lg` | 4px | 提示、轻容器 |
+| `--radius-card` | 4px | 卡片 |
+| `--radius-panel` | 4px | 大屏主面板 |
+| `--radius-full` | 999px | **仅限正圆几何**（status-dot/live-dot/spinner）；禁止 pill 徽章 |
 
 ### 6.5 阴影和动效
 
-卡片默认用边框 + `--shadow-sm`；悬浮态最多升到 `--shadow-md`。主按钮使用 `--shadow-primary`，但一个区域只保留一个主操作。
+卡片默认用 1px 边框 + `--shadow-xs`（极浅）；悬浮态最多 `--shadow-sm`。`--shadow-md/lg/primary` 已 deprecated（别名指向 sm/none），新代码禁用。focus 反馈统一 `--ring-focus`（1px 蓝环），不用阴影光晕。主按钮一个区域只保留一个主操作。
 
-动效统一使用 `150ms / 250ms / 400ms` 与 `--motion-easing-default`；`prefers-reduced-motion` 下禁用非必要过渡。
+动效统一使用 `150ms / 250ms / 400ms` 与 `--motion-easing-default`，禁止 bounce/elastic 缓动；`prefers-reduced-motion` 下禁用非必要过渡。**渐变白名单：** 仅骨架屏 shimmer（功能性加载反馈）允许使用渐变，且须有 reduced-motion 降级；其余装饰性渐变一律禁止。
 
 ### 6.6 响应式断点
 
-前端统一使用四级断点，新代码禁止引入 1200/1100/720/900px 等中间值：
+前端统一使用四级断点，新代码禁止引入 1200/1100/720/900px 等中间值（历史离群值 860/1180 已于 v0.13.0 清除）：
 
 | 断点 | 用途 |
 |------|------|
-| `1280px` | 宽屏 → 中屏：大屏 insight-rail 变列、KPI/grid 列数减少、Agent 右侧监控下移 |
+| `1280px` | 宽屏 → 中屏：大屏主区变单列、KPI/grid 列数减少、Agent 右侧监控下移 |
 | `992px` | 中屏 → 窄屏：侧栏强制折叠为图标；单列堆叠开始 |
 | `640px` | 窄屏 → 手机：header 精简、部分网格单列、桑基/PCA 等组件切换紧凑模式 |
 | `520px` | 手机最小：侧栏完全隐藏，主内容占满视口，避免任何页面级横向溢出 |
@@ -259,19 +270,20 @@ CSS 变量无法用于 `@media`，因此断点值在代码中写死；所有新�
 
 | 组件 | 要求 |
 |------|------|
-| `Button.vue` | 图标按钮优先，文本按钮只用于明确命令；主按钮数量克制 |
-| `KpiCard.vue` | 数字用 `--font-family-number`，趋势只作为辅助 |
-| `StatStrip.vue` | 指标条，支持 `loading` 骨架与 `secondary` tone；密度低于 `KpiCard` |
+| `Button.vue` | 图标按钮优先，文本按钮只用于明确命令；主按钮数量克制；紧凑三档高 24/28/34，无阴影 |
+| `KpiCard.vue` | 数字用 `--font-family-number`，值字号 20px（2xl），趋势只作为辅助 |
+| `StatStrip.vue` | 指标条，支持 `loading` 骨架与 `secondary` tone；值字号 16px（lg），密度低于 `KpiCard` |
 | `SectionCard.vue` | 统一「标题 + 可选副标题/操作 + 内容」的卡片外壳；内部使用 `ElCard.section-card` |
-| `ChartCard.vue` | 标题、口径、图表、脚注结构固定；未知图型用空态而非崩溃 |
-| `PageHeaderBar.vue` | 标题 20px 左右，不要英雄化 |
-| `Tag.vue` / `RunIdChip.vue` | 胶囊形，长 run_id 允许截断但 tooltip 保留全量 |
+| `ChartCard.vue` | 标题、口径、图表、脚注结构固定；未知图型用空态而非崩溃；**禁止单侧粗边条装饰** |
+| `PageHeaderBar.vue` | 标题 18px，不要英雄化 |
+| `Tag.vue` / `RunIdChip.vue` | 方角色码徽章（4px 圆角，浅底+文字色编码），禁止胶囊形；长 run_id 允许截断但 tooltip 保留全量 |
 | `MarkdownContent.vue` | 消息 Markdown 渲染层；禁用原始 HTML，长表格和代码块必须组件内横向滚动 |
 | `AgentMessage.vue` | 用户/助手区分清楚；消息正文走 Markdown，事实/理解/建议/待确认默认折叠 |
-| `ErrorState.vue` / `EmptyState.vue` | 中文说明 + 可执行下一步，不白屏 |
+| `ErrorState.vue` / `EmptyState.vue` | 中文说明 + 可执行下一步，不白屏；空态 padding 收敛（≤20px），禁止大面积空白 |
 | `DistributionBars.vue` | 后端 `HistBin[]` 分箱直方图；用于首页分布概览 |
 | `CrossMatrixHeatmap.vue` | 两维交叉转化率热力图；带默认 tooltip，颜色从 `chartTheme.ts` 取 |
 | `PdpIceChart.vue` | PDP 粗线 + ICE 细线；最多展示 50 条 ICE，避免渲染过载 |
+| `ScreenMiniGrid.vue` | `/screen` 底部 2×2 小图网格（渠道强度/横截面阶段/训练划分/质量与产物）；条轨高 6–8px，方角 |
 
 不要卡片套卡片。重复列表项可以是卡片；页面大区块应是无框布局或全宽区域。
 
@@ -320,11 +332,13 @@ CSS 变量无法用于 `@media`，因此断点值在代码中写死；所有新�
 
 `pen/ui.pen` 当前必须至少包含三块顶层画布：
 
-1. `00 · Halo v2 Design Tokens 设计令牌`
-2. `01 · Halo v2 Component Library 组件库`
-3. `/screen Halo v2 总览大屏`
+1. `00 · Data Dense Design Tokens 设计令牌`
+2. `01 · Data Dense Component Library 组件库`
+3. `/screen Data Dense 总览大屏`
 
 修改 `.pen` 文件只能用 Pencil MCP 工具，不能用普通文本读取或二进制改写。Pencil 中的 token 名称需要和 `tokens.css` 保持同义，尤其是 primary、gray、chart、radius、screen 兼容 token。
+
+> **欠账（2026-08-13）：** Data Dense v3 迁移本次未同步 `.pen` 三画布（Pencil MCP 不可用），详见 `CHANGE.md` 当日条目；下次 Pencil 可用时按本节补齐。
 
 ---
 
@@ -333,10 +347,16 @@ CSS 变量无法用于 `@media`，因此断点值在代码中写死；所有新�
 ```text
 □ /screen 仍在 AppLayout 内，路由 meta 不含 fullscreen
 □ 没有 data-theme="screen"、chartColors('screen')、axisTheme('screen')
-□ 默认浅色，页面背景不是独立暗色大屏
-□ 中央渠道转化桑基图为首屏视觉中心，外围至少 6 个小图或业务微卡
+□ 默认浅色：浅灰页面 #f8fafc 托白色卡片，不是独立暗色大屏
+□ 中央渠道转化桑基大主图为首屏视觉中心，配 KPI 指标行 + 右侧洞察列表 + 2×2 小图网格
+□ 无 12px 以上圆角硬编码；radius-full 仅正圆几何元素；无 pill 徽章
+□ 无装饰性渐变（shimmer 白名单除外）与装饰阴影；无单侧粗边框装饰条
+□ 字体栈不含 Inter / Roboto / Geist
+□ 表格斑马纹 #f8fafc、行高紧凑、单元格 12px；状态标签为方角色码徽章
+□ gray-400 / --text-tertiary 不出现在正文与表格数据（仅占位/角标）
+□ 断点仅 1280/992/640/520 四档
 □ 所有业务数字来自 API，接口失败只降级不造假
-□ tokens.css、Design Tokens.md、DESIGN.md、ui.pen 同步
+□ tokens.css、Design Tokens.md、DESIGN.md、ui.pen 同步（本次 ui.pen 欠账见 §11）
 □ npm run build 通过
 □ 关键页面在桌面和窄屏不发生文字重叠或全页溢出
 ```

@@ -608,7 +608,7 @@ cd frontend && npm install && npm run dev
 # 前端开发端口 5600；API baseURL → http://127.0.0.1:9800/api/v1
 ```
 
-**实现状态摘要：** 清洗/训练 E0–E8 全矩阵（Stacking/校准/消融）/SHAP/PDP/反事实/多算法分群/预算模拟/全量 API（含模拟与报告 + Stage3 描述性聚合 dashboard/cross-matrix）/十路由前端（Halo 浅色圆角工作台、`/screen` 中央渠道转化桑基图并入 AppLayout、五组叙事导航）/Agent 装饰器工具注册 + render_chart 图表工具（chart-spec v1.0 会话内联渲染）/AI 分析台真实上游 LLM 回复 + status/tool/chart 事件监控/Pi 编排中枢（默认 runtime + 7 skills + PiAgent 配置卡片 + 上游模型列表选择 + 一键报告 + 审计回放）已落地。开发端口：API **9800**、前端 **5600**。P2（RAG、K8s、多租户、因果 uplift 主线）默认不做。
+**实现状态摘要：** 清洗/训练 E0–E8 全矩阵（Stacking/校准/消融）/SHAP/PDP/反事实/多算法分群/预算模拟/全量 API（含模拟与报告 + Stage3 描述性聚合 dashboard/cross-matrix）/十路由前端（Data Dense 数据密集工作台、`/screen` 中央渠道转化桑基高密度网格并入 AppLayout、五组叙事导航）/Agent 装饰器工具注册 + render_chart 图表工具（chart-spec v1.0 会话内联渲染）/AI 分析台真实上游 LLM 回复 + status/tool/chart 事件监控/Pi 编排中枢（默认 runtime + 7 skills + PiAgent 配置卡片 + 上游模型列表选择 + 一键报告 + 审计回放）已落地。开发端口：API **9800**、前端 **5600**。P2（RAG、K8s、多租户、因果 uplift 主线）默认不做。
 
 ---
 

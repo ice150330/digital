@@ -22,12 +22,12 @@ const emit = defineEmits<{ retry: [] }>()
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-3);
   border: 1px solid var(--color-danger-border);
   border-radius: var(--radius-card);
   background: var(--color-danger-bg);
 }
-.err-icon { display: grid; width: var(--space-10); height: var(--space-10); flex: 0 0 auto; place-items: center; border-radius: var(--radius-full); background: var(--color-white); color: var(--color-danger); }
+.err-icon { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: var(--radius-sm); background: var(--color-white); color: var(--color-danger); }
 .err-copy { min-width: 0; flex: 1; }
 .err-copy strong { color: var(--color-danger-text); font-size: var(--font-size-sm); }
 .err-copy p { margin: var(--space-1) 0 0; color: var(--text-body); font-size: var(--font-size-xs); line-height: 1.6; }

@@ -323,7 +323,7 @@ onMounted(loadMeta)
 .layout-2 {
   display: grid;
   grid-template-columns: 1fr 1.2fr;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 @media (max-width: 992px) {
   .layout-2 {

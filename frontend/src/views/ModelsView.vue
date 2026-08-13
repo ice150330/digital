@@ -425,7 +425,7 @@ onMounted(load)
 .grid-2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-5);
+  gap: var(--space-3);
 }
 @media (max-width: 992px) {
   .grid-2 {
@@ -442,7 +442,7 @@ onMounted(load)
 .slider-row {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   margin-top: var(--space-2);
 }
 /* Stage 6：E4/E6 展示降权行（代码与端点保留，仅视觉弱化） */
