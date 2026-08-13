@@ -26,6 +26,28 @@
 
 ## 变更日志
 
+## 2026-08-13 — 桑基图多阶段漏斗升级
+
+- **类型：** feat / refactor
+- **范围：** `src/digital_marketing/services/dashboard.py`、`src/digital_marketing/schemas/data.py`、`frontend/src/api/data.ts`、`frontend/src/components/ScreenSankeyOrbit.vue`
+- **摘要：**
+  - 后端新增 `dashboard.channel_funnel`：每渠道 × 阶段计数（邮件打开 / 邮件点击 / 到访站点 / 深度浏览 / 转化），一次 GROUP BY 聚合产出，横截面独立计数（非嵌套）。
+  - 桑基主图从「全量 → 渠道 → 转化」升级为六列多阶段漏斗「全量 → 渠道 → 到访站点 → 深度浏览 → 转化 / 未转化」，流量保守化（深度→转化取 min，浅浏览承接转化溢出）；节点按渠道着色、未到访/浅浏览灰阶、转化绿 / 未转化琥珀（索引语义锁定）。
+  - tooltip 增强：边显示「占源节点比例」，节点显示「占全量比例」与精确样本数；header 副题同步为「渠道 → 到访 → 深度 → 转化」。
+  - 用 `email_clicks` 取代退化的「点击/打开」（`ctr>0` 恒真 → 100%），补 `email_opens` 作为更上游阶段，供渠道级漏斗与后续复用。
+- **原因：** 用户要求桑基图用上全部阶段字段、阶段划分更细、整体更精细。
+- **破坏性：** 无（`channel_funnel` 为新增字段；旧 `funnel` 四阶段保持不变，ScreenMiniGrid 与测试不受影响）。
+- **验证：** `pytest tests/test_api_dashboard.py` 6 passed；`npm run build` 通过；curl `/data/dashboard` 返回 `channel_funnel` 5 渠道。
+
+## 2026-08-13 — 修复 Pi 桥接 loopback 端口硬编码
+
+- **类型：** fix
+- **范围：** `src/digital_marketing/agent/pi_runtime.py`、`src/digital_marketing/agent/service.py`、`src/digital_marketing/api/routes_agent.py`、`tests/test_pi_bridge.py`
+- **摘要：** Pi 桥接回指宿主的 `api_base` 原硬编码 `http://127.0.0.1:9800`，后端跑在非 9800 端口时桥接取不到工具清单、执行不了工具（render_chart 首当其冲，表现为「会话无法获取绘图工具」）。现改为从真实请求端口推导 loopback 基址（`_loopback_base(request)`），经 `service.chat → run_pi_chat → _run_bridge` 透传，缺省仍回退 9800。
+- **原因：** 端口 9800 被另一项目 `tsa-server.exe` 占用，后端迁 9801 后桥接仍写死 9800 导致工具失败。
+- **破坏性：** 无（`api_base` 为可选参数，直接调用方与测试向后兼容；两处 `_run_bridge` monkeypatch 改为 `**kwargs`）。
+- **验证：** `pytest tests/test_pi_bridge.py` 13 passed。
+
 ## 2026-08-13 — 会话模块升级：聊天优先 + 侧栏分栏工作区
 
 - **类型：** refactor / design

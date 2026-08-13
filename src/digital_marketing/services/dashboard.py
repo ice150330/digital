@@ -29,6 +29,17 @@ FUNNEL_STAGES: list[tuple[str, str, str]] = [
     ("converted", "转化", "conversion = 1"),
 ]
 
+# 渠道级转化漏斗（桑基主图用）：更细的阶段字段，横截面独立计数，非嵌套。
+# 用 email_clicks 取代退化的「点击/打开」（ctr>0 恒真 → 100%），
+# 并补上 email_opens 作为更上游的阶段，使桑基能划分出更多阶段。
+CHANNEL_FUNNEL_STAGES: tuple[tuple[str, str, str], ...] = (
+    ("email_opened", "邮件打开", "email_opens > 0"),
+    ("email_clicked", "邮件点击", "email_clicks > 0"),
+    ("visited", "到访站点", "website_visits > 0"),
+    ("deep_visited", "深度浏览", "website_visits > 0 AND pages_per_visit >= 2"),
+    ("converted", "转化", "conversion = 1"),
+)
+
 HIST_COLUMNS = ("age", "income", "ad_spend")
 HIST_BINS = 10
 
@@ -91,6 +102,26 @@ def get_dashboard(db: Session | None = None) -> dict[str, Any]:
                 }
             )
 
+        # 渠道级漏斗：每渠道 × 阶段计数（横截面独立计数，非嵌套）
+        select_cols = ", ".join(
+            f"SUM(CASE WHEN {cond} THEN 1 ELSE 0 END) AS {stage}"
+            for stage, _label, cond in CHANNEL_FUNNEL_STAGES
+        )
+        cf_rows = sess.execute(
+            text(
+                f"SELECT campaign_channel AS channel, COUNT(*) AS n, {select_cols} "
+                "FROM campaigns GROUP BY campaign_channel"
+            )
+        ).all()
+        channel_funnel = [
+            {
+                "channel": str(r.channel),
+                "n": int(r.n),
+                **{stage: int(getattr(r, stage)) for stage, _label, _cond in CHANNEL_FUNNEL_STAGES},
+            }
+            for r in cf_rows
+        ]
+
         histograms: dict[str, list[dict[str, Any]]] = {}
         for col in HIST_COLUMNS:
             vals = [r[0] for r in sess.execute(text(f"SELECT {col} FROM campaigns")).all()]  # noqa: S608 — col 来自白名单常量
@@ -99,6 +130,7 @@ def get_dashboard(db: Session | None = None) -> dict[str, Any]:
         return {
             "kpis": kpis,
             "funnel": funnel,
+            "channel_funnel": channel_funnel,
             "histograms": histograms,
             "caliber": (
                 f"横截面统计：campaigns 全表独立计数（n={n}），非用户路径 cohort；"

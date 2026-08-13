@@ -42,6 +42,16 @@ export interface FunnelStage {
   rate_vs_total: number
 }
 
+export interface ChannelFunnel {
+  channel: string
+  n: number
+  email_opened: number
+  email_clicked: number
+  visited: number
+  deep_visited: number
+  converted: number
+}
+
 export interface HistBin {
   lo: number
   hi: number
@@ -51,6 +61,7 @@ export interface HistBin {
 export interface DashboardData {
   kpis: DashboardKpis
   funnel: FunnelStage[]
+  channel_funnel: ChannelFunnel[]
   histograms: Record<string, HistBin[]>
   caliber: string
   source: string

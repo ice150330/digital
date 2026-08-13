@@ -60,11 +60,24 @@ class HistBin(BaseModel):
     count: int
 
 
+class ChannelFunnel(BaseModel):
+    """渠道级转化漏斗（桑基主图用）：每渠道 × 阶段计数，横截面独立计数，非嵌套。"""
+
+    channel: str
+    n: int
+    email_opened: int = 0
+    email_clicked: int = 0
+    visited: int = 0
+    deep_visited: int = 0
+    converted: int = 0
+
+
 class DashboardData(BaseModel):
     """大屏聚合数据；caliber 为口径真相源（横截面、伪漏斗非 cohort、时序不可做）。"""
 
     kpis: DashboardKpis
     funnel: list[FunnelStage]
+    channel_funnel: list[ChannelFunnel] = Field(default_factory=list)
     histograms: dict[str, list[HistBin]]
     caliber: str
     source: str
