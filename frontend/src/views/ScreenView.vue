@@ -7,6 +7,7 @@ import { computed, onMounted, ref } from 'vue'
 import Icon from '../components/Icon.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
 import ScreenSankeyOrbit from '../components/ScreenSankeyOrbit.vue'
+import StatStrip from '../components/StatStrip.vue'
 import Tag from '../components/Tag.vue'
 import { fetchHealth, type HealthData } from '../api/health'
 import {
@@ -106,6 +107,30 @@ const insightItems = computed(() => [
   `当前强渠道为 ${topChannel.value?.channel ?? '—'}，描述性转化率 ${pct2(topChannel.value?.conversion_rate)}。`,
   `全局解释中 ${topFeature.value?.name ?? '—'} 的 mean |SHAP| 排名靠前，仅说明模型敏感性。`,
 ])
+
+const largestCluster = computed(() => {
+  const rows = segments.value?.clusters ?? []
+  const top = [...rows].sort((a, b) => Number(b.n ?? 0) - Number(a.n ?? 0))[0]
+  if (!top) return null
+  return {
+    name: `簇 ${top.cluster_id}`,
+    n: top.n ?? 0,
+    share: top.share ?? (segments.value?.n_samples ? (top.n ?? 0) / segments.value.n_samples : 0),
+    conversionRate: top.conversion_rate ?? null,
+  }
+})
+
+const budgetHeadline = computed(() => {
+  const rec = budget.value?.recommended
+  if (!rec) return null
+  return {
+    k: budget.value?.recommended_k ?? rec.k,
+    expectedNet: rec.expected_net ?? null,
+  }
+})
+
+const piReady = computed(() => Boolean(piStatus.value?.installed && !piStatus.value?.is_stub && piStatus.value?.bridge_ready))
+const failKeys = computed(() => Object.keys(fails.value))
 </script>
 
 <template>
@@ -146,6 +171,41 @@ const insightItems = computed(() => [
           <p class="eyebrow">Data Caliber</p>
           <p>{{ dashboard?.caliber || '口径加载中：大屏仅展示横截面描述、模型估计与产物指标。' }}</p>
         </div>
+
+        <div v-if="segments" class="insight-card compact">
+          <p class="eyebrow">分群摘要</p>
+          <p v-if="largestCluster">
+            最大簇：{{ largestCluster.name }}（{{ pct2(largestCluster.share) }}）
+            <br />
+            <span class="muted">簇转化率 {{ pct2(largestCluster.conversionRate) }}</span>
+          </p>
+          <p v-else class="muted">暂无分群结果</p>
+        </div>
+
+        <div v-if="budget" class="insight-card compact">
+          <p class="eyebrow">预算模拟</p>
+          <p v-if="budgetHeadline">
+            推荐触达 K：{{ budgetHeadline.k }}
+            <br />
+            <span class="muted">期望净价值 {{ money(budgetHeadline.expectedNet) }}</span>
+          </p>
+          <p v-else class="muted">暂无预算模拟结果</p>
+        </div>
+
+        <div v-if="piStatus" class="insight-card compact">
+          <p class="eyebrow">Pi 状态</p>
+          <p>
+            <Tag :tone="piReady ? 'success' : 'warning'">{{ piReady ? 'Pi 已就绪' : 'Pi 可降级' }}</Tag>
+            <br />
+            <span class="muted">默认 runtime：{{ piStatus.default_runtime || '—' }}</span>
+          </p>
+        </div>
+
+        <div v-if="failKeys.length" class="insight-card danger">
+          <Icon icon="uil:exclamation-triangle" size="md" />
+          <p>以下数据源暂不可用：{{ failKeys.join('、') }}</p>
+        </div>
+
         <div class="insight-card warning">
           <Icon icon="uil:exclamation-triangle" size="lg" />
           <p>以下洞察基于历史数据中的相关关系与模型估计，不构成因果证明，也不构成实际投放收益承诺。</p>
@@ -154,11 +214,7 @@ const insightItems = computed(() => [
     </section>
 
     <section class="metric-strip">
-      <div v-for="item in metricStrip" :key="item.label" class="metric-tile">
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <small>{{ item.hint }}</small>
-      </div>
+      <StatStrip :items="metricStrip" />
     </section>
   </div>
 </template>

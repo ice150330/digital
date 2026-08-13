@@ -11,9 +11,14 @@ const router = createRouter({
     },
     {
       path: '/',
+      name: 'root',
+      redirect: '/screen',
+    },
+    {
+      path: '/overview',
       name: 'home',
       component: () => import('../views/HomeView.vue'),
-      meta: { title: '总览' },
+      meta: { title: '数据总览' },
     },
     {
       path: '/models',
@@ -62,6 +67,12 @@ const router = createRouter({
       name: 'about',
       component: () => import('../views/AboutView.vue'),
       meta: { title: '关于与复现' },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('../views/NotFoundView.vue'),
+      meta: { title: '页面不存在' },
     },
   ],
 })

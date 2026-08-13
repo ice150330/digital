@@ -26,6 +26,23 @@
 
 ## 变更日志
 
+## 2026-08-12 — 布局与前端内容优化
+
+- **类型：** feat / refactor / design / docs
+- **范围：** `frontend/src/router`、`frontend/src/layouts`、`frontend/src/views`、`frontend/src/components`、`frontend/src/api/agent.ts`、`frontend/src/styles/screen.css`、`DESIGN.md`、`CHANGE.md`
+- **摘要：**
+  - 导航统一：`/` 重定向到 `/screen`，原 `HomeView` 迁移到 `/overview`，侧栏「数据总览」指向 `/overview`，路由/侧栏/document title 名称一致；新增 `NotFoundView.vue` 404 页面；侧栏唯一子项与分组标题重复时隐藏分组标题。
+  - P0 修复：`HomeView` 添加 `DisclaimerBanner` 展示 `dashboard.caliber`；`RulesView` 添加首屏 `LoadingState`；`ModelsView` 校准卡片跟随 `selectedRun`，无产物时回退到 `E8_lightgbm_calibrated` 并提示。
+  - 共享组件：新增 `SectionCard.vue`；扩展 `StatStrip.vue` 支持 `loading` 骨架与 `secondary` tone；`AgentView` 用 `SectionCard` 替换手写卡片 div。
+  - 内容补齐：`ScreenView` 右侧 rail 展示分群/预算/Pi 状态摘要与 `fails` 降级提示，底部指标条改用 `StatStrip`；`HomeView` 新增年龄/收入/广告支出分布直方图与交叉转化热力图（维度选择器）；`ModelsView` 新增 PDP/ICE 部分依赖区块；`SegmentsView` 用后端 disclaimer 渲染；`CustomersView` 反事实曲线默认展开；`PiConsoleView` 增加审计聚合 `StatStrip` 与可折叠工具清单（新增 `fetchToolsManifest`）。
+  - 断点统一：全站 CSS `@media` 统一为 1280/992/640/520 四档，清理 1200/1100/720/900px 中间值；删除 8 个图表组件内嵌死 title markup，`LiftChart` 标题上提至 `ModelsView` section header。
+- **原因：** 答辩前最终打磨：导航与落地页一致、已产出后端数据全部可见、组件减少重复、响应式断点统一。
+- **影响：** 默认进入 `/screen` 开场大屏；`/overview` 承载原总览页；新增 4 个展示型组件；用户可直接看到 PDP/ICE/直方图/交叉矩阵等此前未渲染的分析产物。
+- **破坏性：** 无；`/overview` 路径永久保留，原 `/` 自动跳转。
+- **关联：** 计划文件 `C:\Users\39574\.claude\plans\zippy-launching-flame.md`
+- **验证：** `cd frontend && npm run build` 通过；`rg "max-width: (1200|1100|720|900)" frontend/src` 0 命中；`rg 'class="title"' frontend/src/components` 仅 `EmptyState.vue` 命中；后端 `pytest -q` 通过。
+- **Pencil 同步：** 本次未同步 `pen/ui.pen` 整页样张，新增组件与路由调整以代码实现为准；如需视觉稿同步请单独安排。
+
 ## 2026-08-02 — CLAUDE.md 同步 0802 系列变更
 
 - **类型：** docs

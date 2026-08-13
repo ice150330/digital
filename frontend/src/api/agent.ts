@@ -265,6 +265,20 @@ export function fetchAuditRecent(limit = 50) {
   return getData<AuditRecentData>('/agent/audit/recent', { limit })
 }
 
+export interface ToolManifestItem {
+  name: string
+  description: string
+  stage?: string
+}
+
+export interface ToolManifestData {
+  tools: ToolManifestItem[]
+}
+
+export function fetchToolsManifest() {
+  return getData<ToolManifestData>('/agent/tools/manifest')
+}
+
 export function generateReport(body: { title?: string; sections?: string[] }) {
   return postData<ReportData>('/agent/report', body, { timeout: 120000 })
 }

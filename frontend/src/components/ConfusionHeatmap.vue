@@ -5,7 +5,6 @@ import { COLOR_PRIMARY, COLOR_TEXT, COLOR_SURFACE, COLOR_HEAT_LOW } from '../uti
 
 const props = defineProps<{
   confusion: { tn: number; fp: number; fn: number; tp: number }
-  title?: string
 }>()
 
 const option = computed(() => {
@@ -49,11 +48,9 @@ const option = computed(() => {
 
 <template>
   <div>
-    <div v-if="title" class="title">{{ title }}</div>
     <BaseChart :option="option" />
   </div>
 </template>
 
 <style scoped>
-.title { margin-bottom: var(--space-2); font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); }
 </style>

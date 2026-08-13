@@ -9,6 +9,7 @@ import DisclaimerBanner from '../components/DisclaimerBanner.vue'
 import Icon from '../components/Icon.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
 import RuntimeBadge from '../components/RuntimeBadge.vue'
+import SectionCard from '../components/SectionCard.vue'
 import SessionList from '../components/SessionList.vue'
 import ToolTimeline from '../components/ToolTimeline.vue'
 import { useAgentStore } from '../stores/agent'
@@ -155,15 +156,13 @@ watch(
       />
 
       <section class="conversation-panel">
-        <header class="conversation-head">
-          <div>
-            <strong>{{ currentSessionId ? '当前分析会话' : '新分析会话' }}</strong>
-            <span v-if="currentSessionId" class="session-id">{{ currentSessionId }}</span>
-          </div>
-          <span class="grounded-label" :class="`tone-${phaseTone}`">
-            <Icon icon="uil:shield-check" size="sm" /> {{ phaseLabel }}
-          </span>
-        </header>
+        <SectionCard class="conversation-head" title="当前分析会话" :subtitle="currentSessionId || undefined">
+          <template #actions>
+            <span class="grounded-label" :class="`tone-${phaseTone}`">
+              <Icon icon="uil:shield-check" size="sm" /> {{ phaseLabel }}
+            </span>
+          </template>
+        </SectionCard>
 
         <div ref="chatScroll" class="message-list" aria-live="polite">
           <div v-if="!messages.length" class="welcome-state">
@@ -179,11 +178,12 @@ watch(
       </section>
 
       <aside class="monitor-panel">
-        <div class="monitor-head">
-          <div><strong>运行监控</strong><span>{{ runStatusText }}</span></div>
-          <span class="monitor-count">{{ activeTrace.length }}</span>
-        </div>
-        <div class="run-state-card">
+        <SectionCard class="monitor-head" title="运行监控" :subtitle="runStatusText">
+          <template #actions>
+            <span class="monitor-count">{{ activeTrace.length }}</span>
+          </template>
+        </SectionCard>
+        <SectionCard class="run-state-card" title="执行状态">
           <div class="run-state-main">
             <span class="run-phase" :class="`tone-${phaseTone}`">{{ phaseLabel }}</span>
             <strong>{{ activeTool || runtimeState }}</strong>
@@ -195,17 +195,16 @@ watch(
               <strong>{{ item.value }}</strong>
             </div>
           </div>
-        </div>
+        </SectionCard>
         <ToolTimeline :trace="activeTrace" :streaming="streaming" @retry="agentStore.retryTool" />
-        <div class="runtime-card">
-          <div class="runtime-card-title"><Icon icon="uil:processor" size="sm" /><strong>运行状态</strong></div>
+        <SectionCard class="runtime-card" title="运行状态">
           <dl>
             <div><dt>Runtime</dt><dd>{{ runtime }}</dd></div>
             <div><dt>Pi</dt><dd>{{ pi?.installed && !pi?.is_stub ? '已就绪' : '可降级' }}</dd></div>
             <div><dt>模型</dt><dd>{{ latestAssistant?.data?.llm_model || '—' }}</dd></div>
             <div><dt>会话</dt><dd>{{ pi?.sessions_count ?? sessions.length }}</dd></div>
           </dl>
-        </div>
+        </SectionCard>
       </aside>
     </div>
   </div>
@@ -218,8 +217,8 @@ watch(
 .agent-workspace { display: grid; grid-template-columns: 248px minmax(0, 1fr) 304px; align-items: start; gap: var(--space-4); min-height: 680px; }
 .session-panel { align-self: start; }
 .conversation-panel { display: flex; min-width: 0; flex-direction: column; gap: var(--space-3); }
-.conversation-head { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
-.conversation-head strong { color: var(--text-title); font-size: var(--font-size-md); }
+.conversation-head { margin-bottom: 0; }
+.conversation-head :deep(.section-card-title) { font-size: var(--font-size-md); }
 .session-id { display: block; max-width: 240px; margin-top: var(--space-1); overflow: hidden; color: var(--text-secondary); font-family: var(--font-family-number); font-size: var(--font-size-xs); text-overflow: ellipsis; white-space: nowrap; }
 .grounded-label { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-1) var(--space-2); border-radius: var(--radius-full); background: var(--bg-subtle); color: var(--text-secondary); font-size: var(--font-size-xs); }
 .tone-primary { color: var(--color-primary-700); background: var(--color-primary-50); }
@@ -234,12 +233,9 @@ watch(
 .welcome-state p { margin: 0; color: var(--text-secondary); font-size: var(--font-size-sm); }
 .agent-error { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-danger-border); border-radius: var(--radius-md); background: var(--color-danger-bg); color: var(--color-danger-text); font-size: var(--font-size-sm); }
 .monitor-panel { display: flex; flex-direction: column; gap: var(--space-3); }
-.monitor-head { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
-.monitor-head strong, .monitor-head span { display: block; }
-.monitor-head strong { color: var(--text-title); font-size: var(--font-size-sm); }
-.monitor-head div > span { margin-top: var(--space-1); color: var(--text-secondary); font-size: var(--font-size-xs); }
+.monitor-head { margin-bottom: 0; }
 .monitor-count { display: grid; width: 28px; height: 28px; place-items: center; border-radius: var(--radius-full); background: var(--color-primary-50); color: var(--color-primary-700); font-family: var(--font-family-number); font-size: var(--font-size-xs); }
-.run-state-card { padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
+.run-state-card { margin-bottom: 0; }
 .run-state-main { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); min-width: 0; }
 .run-state-main strong { overflow: hidden; color: var(--text-title); font-size: var(--font-size-sm); text-overflow: ellipsis; white-space: nowrap; }
 .run-state-main small { color: var(--text-secondary); font-family: var(--font-family-number); font-size: var(--font-size-xs); }
@@ -248,14 +244,13 @@ watch(
 .run-state-grid div { min-width: 0; padding: var(--space-2); border-radius: var(--radius-md); background: var(--bg-subtle); }
 .run-state-grid span { display: block; color: var(--text-secondary); font-size: var(--font-size-xs); }
 .run-state-grid strong { display: block; margin-top: var(--space-1); color: var(--text-title); font-family: var(--font-family-number); font-size: var(--font-size-md); }
-.runtime-card { padding: var(--space-4); border: 1px solid var(--border-default); border-radius: var(--radius-card); background: var(--bg-card); }
-.runtime-card-title { display: flex; align-items: center; gap: var(--space-2); color: var(--text-title); font-size: var(--font-size-sm); }
-.runtime-card dl { margin: var(--space-3) 0 0; }
+.runtime-card { margin-bottom: 0; }
+.runtime-card dl { margin: 0; }
 .runtime-card dl div { display: flex; justify-content: space-between; padding: var(--space-2) 0; border-top: 1px solid var(--border-default); font-size: var(--font-size-xs); }
 .runtime-card dt { color: var(--text-secondary); }
 .runtime-card dd { margin: 0; color: var(--text-title); font-family: var(--font-family-number); }
 @media (max-width: 1280px) { .agent-workspace { grid-template-columns: 220px minmax(0, 1fr); } .monitor-panel { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 280px; } .monitor-head { grid-column: 1 / -1; } }
-@media (max-width: 900px) { .agent-workspace { grid-template-columns: minmax(0, 1fr); } .monitor-panel { display: flex; } }
+@media (max-width: 992px) { .agent-workspace { grid-template-columns: minmax(0, 1fr); } .monitor-panel { display: flex; } }
 @media (max-width: 640px) {
   .runtime-actions { min-width: 0; width: 100%; }
   .runtime-select { width: auto; min-width: 0; flex: 1; }
@@ -265,7 +260,7 @@ watch(
   .monitor-panel { order: 3; }
   .message-list { min-height: 320px; max-height: 520px; gap: var(--space-4); padding: var(--space-3); }
   .welcome-state { min-height: 240px; }
-  .conversation-head { min-height: var(--control-height-lg); padding: 0 var(--space-3); }
+  .conversation-head :deep(.section-card-title) { font-size: var(--font-size-sm); }
   .run-state-main { grid-template-columns: 1fr; align-items: start; }
 }
 </style>

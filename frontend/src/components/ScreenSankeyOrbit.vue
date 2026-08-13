@@ -34,7 +34,7 @@ const props = defineProps<{
 const isCompact = ref(false)
 
 function syncCompact() {
-  isCompact.value = typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches
+  isCompact.value = typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
 }
 
 onMounted(() => {
@@ -596,7 +596,7 @@ const sankeyOption = computed<EChartsCoreOption>(() => {
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
   .flow-title {
     align-items: flex-start;
     flex-direction: column;

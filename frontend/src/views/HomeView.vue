@@ -1,12 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ElButton, ElCard } from 'element-plus'
-import { fetchDashboard, fetchOverview, type DashboardData, type OverviewData } from '../api/data'
+import { ElButton, ElCard, ElOption, ElSelect } from 'element-plus'
+import {
+  fetchCrossMatrix,
+  fetchDashboard,
+  fetchOverview,
+  type CrossMatrixData,
+  type DashboardData,
+  type OverviewData,
+} from '../api/data'
 import { fetchHealth, type HealthData } from '../api/health'
 import ChannelBarChart from '../components/ChannelBarChart.vue'
 import ConversionDonutChart from '../components/ConversionDonutChart.vue'
+import CrossMatrixHeatmap from '../components/CrossMatrixHeatmap.vue'
+import DisclaimerBanner from '../components/DisclaimerBanner.vue'
+import DistributionBars from '../components/DistributionBars.vue'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
+import LoadingState from '../components/LoadingState.vue'
 import KpiCard from '../components/KpiCard.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
 import QualityIssueRow from '../components/QualityIssueRow.vue'
@@ -17,6 +28,17 @@ const error = ref<string | null>(null)
 const overview = ref<OverviewData | null>(null)
 const health = ref<HealthData | null>(null)
 const dashboard = ref<DashboardData | null>(null)
+const cross = ref<CrossMatrixData | null>(null)
+const crossLoading = ref(false)
+const crossError = ref<string | null>(null)
+
+const rowDim = ref('campaign_channel')
+const colDim = ref('campaign_type')
+const dimOptions = [
+  { label: '广告渠道', value: 'campaign_channel' },
+  { label: '活动类型', value: 'campaign_type' },
+  { label: '性别', value: 'gender' },
+]
 
 const issues = computed(() => (overview.value?.issues ?? []).map((issue) => ({
   code: String(issue.code || 'QUALITY_ISSUE'),
@@ -27,6 +49,20 @@ const issues = computed(() => (overview.value?.issues ?? []).map((issue) => ({
 const formatMoney = (value?: number | null) => value == null ? '—' : `¥${Math.round(value).toLocaleString('zh-CN')}`
 const formatDecimal = (value?: number | null) => value == null ? '—' : Number(value).toFixed(2)
 
+async function loadCross() {
+  crossLoading.value = true
+  crossError.value = null
+  try {
+    const r = await fetchCrossMatrix(rowDim.value, colDim.value)
+    cross.value = r.data
+  } catch (e) {
+    cross.value = null
+    crossError.value = e instanceof Error ? e.message : '加载失败'
+  } finally {
+    crossLoading.value = false
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = null
@@ -36,6 +72,7 @@ async function load() {
     overview.value = ov.value.data
     health.value = h.status === 'fulfilled' ? h.value.data : null
     dashboard.value = dash.status === 'fulfilled' ? dash.value.data : null
+    void loadCross()
   } catch (e) {
     overview.value = null
     error.value = e instanceof Error ? e.message : '加载失败'
@@ -50,13 +87,17 @@ onMounted(load)
 <template>
   <div class="page">
     <PageHeaderBar
-      title="总览"
+      title="数据总览"
       description="数据规模、正类占比、渠道转化与质量告警。数字均来自后端产物。"
     >
       <template #actions>
         <ElButton type="primary" :loading="loading" @click="load">刷新</ElButton>
       </template>
     </PageHeaderBar>
+
+    <DisclaimerBanner
+      :content="dashboard?.caliber || '横截面统计：campaigns 全表独立计数，非用户路径 cohort；伪漏斗各阶段不嵌套，不支持时序推断。'"
+    />
 
     <div v-if="loading" class="card-grid" aria-label="正在加载总览指标">
       <KpiCard v-for="index in 6" :key="index" label="" value="" loading />
@@ -134,6 +175,49 @@ onMounted(load)
       </div>
 
       <ElCard shadow="never" class="section-card">
+        <template #header>分布概览</template>
+        <div v-if="dashboard?.histograms" class="histogram-grid">
+          <DistributionBars
+            v-if="dashboard.histograms.age?.length"
+            :bins="dashboard.histograms.age"
+            label="年龄"
+          />
+          <DistributionBars
+            v-if="dashboard.histograms.income?.length"
+            :bins="dashboard.histograms.income"
+            label="收入"
+          />
+          <DistributionBars
+            v-if="dashboard.histograms.adspend?.length"
+            :bins="dashboard.histograms.adspend"
+            label="广告支出"
+          />
+        </div>
+        <EmptyState v-else title="暂无分布数据" description="请确认 dashboard 产物已生成。" />
+      </ElCard>
+
+      <ElCard shadow="never" class="section-card">
+        <template #header>
+          <div class="section-header-with-controls">
+            <span>交叉转化分析</span>
+            <div class="dim-controls">
+              <ElSelect v-model="rowDim" size="small" class="dim-select" @change="loadCross">
+                <ElOption v-for="opt in dimOptions" :key="opt.value" :label="`行：${opt.label}`" :value="opt.value" />
+              </ElSelect>
+              <ElSelect v-model="colDim" size="small" class="dim-select" @change="loadCross">
+                <ElOption v-for="opt in dimOptions" :key="opt.value" :label="`列：${opt.label}`" :value="opt.value" />
+              </ElSelect>
+            </div>
+          </div>
+        </template>
+        <LoadingState v-if="crossLoading && !cross" />
+        <ErrorState v-else-if="crossError" :message="crossError" @retry="loadCross" />
+        <CrossMatrixHeatmap v-else-if="cross?.cells?.length" :data="cross" />
+        <EmptyState v-else title="暂无交叉矩阵数据" description="请选择维度组合后重试。" />
+        <p v-if="cross?.caliber" class="caliber-text">{{ cross.caliber }}</p>
+      </ElCard>
+
+      <ElCard shadow="never" class="section-card">
         <template #header>数据划分与模型约束</template>
         <ul class="meta-list">
           <li>Train / Valid / Test：{{ formatInt(overview.splits?.n_train) }} / {{ formatInt(overview.splits?.n_valid) }} / {{ formatInt(overview.splits?.n_test) }}</li>
@@ -160,14 +244,18 @@ onMounted(load)
   gap: var(--space-4);
   margin-bottom: var(--space-4);
 }
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
   .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .insight-grid {
-    grid-template-columns: 1fr;
-  }
+  .insight-grid { grid-template-columns: 1fr; }
+  .histogram-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 720px) { .card-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .card-grid { grid-template-columns: 1fr; } .histogram-grid { grid-template-columns: 1fr; } }
 .quality-list { max-height: 280px; overflow-y: auto; }
+.histogram-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+.section-header-with-controls { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.dim-controls { display: flex; align-items: center; gap: var(--space-2); }
+.dim-select { width: 140px; }
+.caliber-text { margin: var(--space-3) 0 0; color: var(--text-secondary); font-size: var(--font-size-xs); line-height: 1.6; }
 .meta-list {
   margin: 0;
   padding-left: var(--space-5);

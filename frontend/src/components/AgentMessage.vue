@@ -86,6 +86,6 @@ const sections = computed(() => {
 .contract-fold li + li { margin-top: var(--space-2); }
 .message-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: var(--space-3); margin-top: var(--space-3); }
 @keyframes blink { 50% { opacity: 0; } }
-@media (max-width: 900px) { .role-user .message-body { max-width: 100%; } }
+@media (max-width: 992px) { .role-user .message-body { max-width: 100%; } }
 @media (prefers-reduced-motion: reduce) { .typing-cursor { animation: none; } }
 </style>

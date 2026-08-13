@@ -14,7 +14,6 @@ const props = defineProps<{
   selectedThreshold?: number
   costFn?: number
   costFp?: number
-  title?: string
 }>()
 
 const option = computed(() => {
@@ -90,11 +89,9 @@ const option = computed(() => {
 
 <template>
   <div>
-    <div v-if="title" class="title">{{ title }}</div>
     <BaseChart :option="option" height="var(--chart-height-lg)" />
   </div>
 </template>
 
 <style scoped>
-.title { margin-bottom: var(--space-2); font-size: var(--font-size-md); font-weight: var(--font-weight-semibold); }
 </style>

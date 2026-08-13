@@ -46,7 +46,7 @@ const batchLoading = ref(false)
 // 反事实（模型行为口径）：沿用最近一次预测的输入
 const lastInput = ref<{ customer_id?: number; features?: Record<string, unknown> } | null>(null)
 const cfFeature = ref<string>('')
-const cfOpen = ref<string[]>([]) // Stage 6：反事实默认收起
+const cfOpen = ref<string[]>(['cf-curve']) // Stage 6：反事实曲线默认展开，步骤表保持折叠
 const cfTarget = ref(0.9)
 const cfLoading = ref(false)
 const cfError = ref<string | null>(null)

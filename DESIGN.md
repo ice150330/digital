@@ -4,7 +4,7 @@
 > **不在本文范围：** 系统架构、数据/ML、FastAPI、Agent/Pi 后端逻辑，统一见 `AGENTS.md`。
 > **配套文件：** 范围见 `docs/plans/`；变更见 `CHANGE.md`；视觉参考库见 `pen/ui.pen`。
 > **令牌源：** `docs/plans/Design Tokens.md` v2.0；运行时实现为 `frontend/src/styles/tokens.css`。
-> **版本：** v0.11.1（2026-08-02）— AI 分析台消息支持 Markdown 完整样式、五段契约默认折叠、会话列表信息增强并改为组件内滚动；Halo 浅色圆角工作台、`/screen` 桑基图与 `/pi` 配置中枢保持。
+> **版本：** v0.12.0（2026-08-12）— 落地页统一为 `/screen`，原首页迁移到 `/overview`；新增 `SectionCard` / `DistributionBars` / `CrossMatrixHeatmap` / `PdpIceChart`；响应式断点统一为 1280/992/640/520；大屏右侧 rail、首页分布/交叉矩阵、模型页 PDP/ICE、Pi 工具清单等补齐。前序 v0.11.1（2026-08-02）的 Markdown 消息、折叠契约、会话列表增强保持不变。
 
 ---
 
@@ -65,14 +65,14 @@ digital 前端是答辩可演示的数据分析工作台，风格定调为 **Hal
 | 路由 | 名称 | 主要内容 |
 |------|------|----------|
 | `/screen` | 总览大屏 | AppLayout 内的中央渠道转化桑基图、外围小图、右侧洞察、底部指标条 |
-| `/` | 总览 Dashboard | KPI、渠道、转化分布、质量问题、数据概况 |
-| `/models` | 模型实验室 | E0–E8、PR/ROC、校准、混淆矩阵、lift、阈值成本 |
+| `/overview` | 数据总览 | KPI、渠道、转化分布、质量问题、分布直方图、交叉矩阵、数据概况 |
+| `/models` | 模型实验室 | E0–E8、PR/ROC、校准、混淆矩阵、lift、阈值成本、PDP/ICE |
 | `/customers` | 客户洞察 | 单客预测、SHAP、反事实敏感性分析 |
 | `/segments` | 分群画像 | 簇画像、PCA、算法对比、稳定性 |
 | `/rules` | 关联规则 | support/confidence/lift 表格与筛选 |
 | `/simulate` | 预算模拟 | 期望价值曲线、推荐 K、Top 触达名单 |
 | `/agent` | AI 分析台 | 真实 LLM 流式对话、Markdown 消息、运行监控、tool_trace、折叠契约、内联图表 |
-| `/pi` | Pi 编排中枢 | PiAgent 配置卡片、健康摘要、skills、审计、一键报告、会话回放 |
+| `/pi` | Pi 编排中枢 | PiAgent 配置卡片、健康摘要、skills、工具清单、审计、一键报告、会话回放 |
 | `/about` | 关于与复现 | 启动命令、数据来源、AI 使用边界 |
 
 全局布局：
@@ -102,7 +102,7 @@ AppLayout
 
 ### 3.2 AI 分析台
 
-`/agent` 是运行中的分析驾驶舱，不做营销页。布局固定为：左侧会话列表、中间对话、右侧运行监控；≤900px 单列堆叠，390px 不允许横向滚动。
+`/agent` 是运行中的分析驾驶舱，不做营销页。布局固定为：左侧会话列表、中间对话、右侧运行监控；≤992px 单列堆叠，390px 不允许横向滚动。
 
 - Runtime 选择只展示 `pi` 与 `local`；`local` 表示上游 LLM + 宿主工具，不再展示模板模式作为用户入口。
 - 左侧会话列表展示标题、runtime、消息数、工具数、更新时间和短会话 ID；列表条目区在组件内部滚动，历史会话增加时不得继续撑高页面。
@@ -242,7 +242,18 @@ AppLayout
 
 动效统一使用 `150ms / 250ms / 400ms` 与 `--motion-easing-default`；`prefers-reduced-motion` 下禁用非必要过渡。
 
----
+### 6.6 响应式断点
+
+前端统一使用四级断点，新代码禁止引入 1200/1100/720/900px 等中间值：
+
+| 断点 | 用途 |
+|------|------|
+| `1280px` | 宽屏 → 中屏：大屏 insight-rail 变列、KPI/grid 列数减少、Agent 右侧监控下移 |
+| `992px` | 中屏 → 窄屏：侧栏强制折叠为图标；单列堆叠开始 |
+| `640px` | 窄屏 → 手机：header 精简、部分网格单列、桑基/PCA 等组件切换紧凑模式 |
+| `520px` | 手机最小：侧栏完全隐藏，主内容占满视口，避免任何页面级横向溢出 |
+
+CSS 变量无法用于 `@media`，因此断点值在代码中写死；所有新增/修改的 `@media` 必须落在上述四档之一，并在 CHANGE 中说明新增断点的理由。
 
 ## 7. 组件规范
 
@@ -250,12 +261,17 @@ AppLayout
 |------|------|
 | `Button.vue` | 图标按钮优先，文本按钮只用于明确命令；主按钮数量克制 |
 | `KpiCard.vue` | 数字用 `--font-family-number`，趋势只作为辅助 |
+| `StatStrip.vue` | 指标条，支持 `loading` 骨架与 `secondary` tone；密度低于 `KpiCard` |
+| `SectionCard.vue` | 统一「标题 + 可选副标题/操作 + 内容」的卡片外壳；内部使用 `ElCard.section-card` |
 | `ChartCard.vue` | 标题、口径、图表、脚注结构固定；未知图型用空态而非崩溃 |
 | `PageHeaderBar.vue` | 标题 20px 左右，不要英雄化 |
 | `Tag.vue` / `RunIdChip.vue` | 胶囊形，长 run_id 允许截断但 tooltip 保留全量 |
 | `MarkdownContent.vue` | 消息 Markdown 渲染层；禁用原始 HTML，长表格和代码块必须组件内横向滚动 |
 | `AgentMessage.vue` | 用户/助手区分清楚；消息正文走 Markdown，事实/理解/建议/待确认默认折叠 |
 | `ErrorState.vue` / `EmptyState.vue` | 中文说明 + 可执行下一步，不白屏 |
+| `DistributionBars.vue` | 后端 `HistBin[]` 分箱直方图；用于首页分布概览 |
+| `CrossMatrixHeatmap.vue` | 两维交叉转化率热力图；带默认 tooltip，颜色从 `chartTheme.ts` 取 |
+| `PdpIceChart.vue` | PDP 粗线 + ICE 细线；最多展示 50 条 ICE，避免渲染过载 |
 
 不要卡片套卡片。重复列表项可以是卡片；页面大区块应是无框布局或全宽区域。
 

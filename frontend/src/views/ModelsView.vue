@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
-  ElButton, ElCard, ElOption, ElSelect, ElSlider, ElTable, ElTableColumn, ElTag,
+  ElAlert, ElButton, ElCard, ElOption, ElSelect, ElSlider, ElTable, ElTableColumn, ElTag,
 } from 'element-plus'
 import {
   fetchCalibration, fetchCurves, fetchLift, fetchMetric, fetchMetrics, fetchThresholdScan,
   type CalibrationData, type CurvesData, type LiftData, type MetricRow, type MetricsListData,
   type ThresholdScanData,
 } from '../api/models'
-import { fetchGlobalExplain, type GlobalExplainData } from '../api/explain'
+import { fetchGlobalExplain, fetchPdp, type GlobalExplainData, type PdpSingle } from '../api/explain'
 import CalibrationChart from '../components/CalibrationChart.vue'
 import ConfusionHeatmap from '../components/ConfusionHeatmap.vue'
 import DisclaimerBanner from '../components/DisclaimerBanner.vue'
@@ -17,6 +17,7 @@ import ErrorState from '../components/ErrorState.vue'
 import LiftChart from '../components/LiftChart.vue'
 import LoadingState from '../components/LoadingState.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
+import PdpIceChart from '../components/PdpIceChart.vue'
 import RocPrCurveChart from '../components/RocPrCurveChart.vue'
 import ShapBarChart from '../components/ShapBarChart.vue'
 import StatStrip from '../components/StatStrip.vue'
@@ -36,6 +37,11 @@ const detail = ref<Record<string, unknown> | null>(null)
 const lift = ref<LiftData | null>(null)
 const scan = ref<ThresholdScanData | null>(null)
 const calibration = ref<CalibrationData | null>(null)
+const calibFallbackNote = ref<string | null>(null)
+const pdp = ref<PdpSingle | null>(null)
+const pdpFeature = ref<string>('')
+const pdpLoading = ref(false)
+const pdpError = ref<string | null>(null)
 const sliderThreshold = ref(0.5)
 
 const items = computed(() => metrics.value?.items ?? [])
@@ -53,6 +59,30 @@ const shapItems = computed(() =>
     value: Number(f.mean_abs_shap ?? f.shap_value ?? 0),
   })),
 )
+
+const featureOptions = computed(() => (globalExplain.value?.top_features ?? []).map((f) => f.name))
+
+async function loadPdp(runId: string, feature?: string) {
+  pdpLoading.value = true
+  pdpError.value = null
+  pdp.value = null
+  try {
+    const f = feature || featureOptions.value[0]
+    if (!f) {
+      pdpError.value = '暂无可用特征'
+      return
+    }
+    const r = await fetchPdp(f, runId)
+    const data = r.data as PdpSingle
+    pdp.value = data
+    pdpFeature.value = data.feature
+  } catch (e) {
+    pdp.value = null
+    pdpError.value = e instanceof Error ? e.message : '加载失败'
+  } finally {
+    pdpLoading.value = false
+  }
+}
 
 const confusion = computed(() => {
   const c = detail.value?.confusion as { tn: number; fp: number; fn: number; tp: number } | undefined
@@ -117,6 +147,27 @@ async function loadRunDetail(runId: string) {
   }
 }
 
+async function loadCalibration(runId: string) {
+  calibration.value = null
+  calibFallbackNote.value = null
+  if (!runId) return
+  try {
+    const cal = await fetchCalibration(runId)
+    calibration.value = cal.data
+    return
+  } catch {
+    /* 当前 run 无校准产物时回退到 E8 */
+  }
+  if (runId === CALIB_RUN) return
+  try {
+    const cal = await fetchCalibration(CALIB_RUN)
+    calibration.value = cal.data
+    calibFallbackNote.value = `当前 run（${runId}）无校准产物，展示 E8 校准前后对比。`
+  } catch {
+    calibration.value = null
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = null
@@ -135,12 +186,8 @@ async function load() {
     } catch {
       globalExplain.value = null
     }
-    try {
-      const cal = await fetchCalibration(CALIB_RUN)
-      calibration.value = cal.data
-    } catch {
-      calibration.value = null
-    }
+    if (defaultRun) await loadCalibration(defaultRun)
+    if (defaultRun) void loadPdp(defaultRun)
   } catch (e) {
     metrics.value = null
     error.value = e instanceof Error ? e.message : '加载失败'
@@ -148,6 +195,13 @@ async function load() {
     loading.value = false
   }
 }
+
+watch(selectedRun, (runId) => {
+  if (runId) {
+    loadCalibration(runId)
+    void loadPdp(runId)
+  }
+})
 
 onMounted(load)
 </script>
@@ -279,7 +333,10 @@ onMounted(load)
           <div class="title">混淆矩阵（test · 阈值 {{ formatMetric(detail?.threshold as number | undefined, 2) }}）</div>
           <ConfusionHeatmap :confusion="confusion" />
         </div>
-        <LiftChart v-if="lift" :deciles="lift.lift_deciles" title="营销升降表（lift / 累计捕获率）" />
+        <div v-if="lift">
+          <div class="title">营销升降表（lift / 累计捕获率）</div>
+          <LiftChart :deciles="lift.lift_deciles" />
+        </div>
       </div>
     </ElCard>
 
@@ -317,6 +374,9 @@ onMounted(load)
         <span>概率校准（{{ calibration.run_id }}）</span>
         <span class="muted ml-sm">{{ calibration.note }}</span>
       </template>
+      <ElAlert v-if="calibFallbackNote" type="info" :closable="false" class="mb-sm">
+        {{ calibFallbackNote }}
+      </ElAlert>
       <CalibrationChart :before="calibration.before" :after="calibration.after" :method="calibration.method" />
       <p class="muted tabular-nums mt-sm">
         brier {{ calibration.before.brier.toFixed(4) }} → {{ calibration.after.brier.toFixed(4) }}；
@@ -333,6 +393,28 @@ onMounted(load)
       </template>
       <ShapBarChart :items="shapItems" />
     </ElCard>
+
+    <ElCard v-if="featureOptions.length" shadow="never" class="section-card">
+      <template #header>
+        <div class="section-header-with-controls">
+          <span>PDP / ICE 部分依赖</span>
+          <ElSelect v-model="pdpFeature" size="small" class="feature-select" @change="() => loadPdp(selectedRun, pdpFeature)">
+            <ElOption v-for="f in featureOptions" :key="f" :label="f" :value="f" />
+          </ElSelect>
+        </div>
+      </template>
+      <LoadingState v-if="pdpLoading" />
+      <ErrorState v-else-if="pdpError" :message="pdpError" @retry="() => loadPdp(selectedRun, pdpFeature)" />
+      <PdpIceChart
+        v-else-if="pdp"
+        :feature="pdp.feature"
+        :grid="pdp.grid"
+        :pdp="pdp.pdp"
+        :ice="pdp.ice"
+      />
+      <EmptyState v-else title="暂无 PDP 产物" description="请运行 scripts/07_explain_advanced.py 生成 PDP/ICE。" />
+      <DisclaimerBanner v-if="pdp?.disclaimer" :content="pdp.disclaimer" />
+    </ElCard>
   </div>
 </template>
 
@@ -345,7 +427,7 @@ onMounted(load)
   grid-template-columns: 1fr 1fr;
   gap: var(--space-5);
 }
-@media (max-width: 1100px) {
+@media (max-width: 992px) {
   .grid-2 {
     grid-template-columns: 1fr;
   }
@@ -355,6 +437,8 @@ onMounted(load)
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
 }
+.section-header-with-controls { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.feature-select { width: 180px; }
 .slider-row {
   display: flex;
   align-items: center;

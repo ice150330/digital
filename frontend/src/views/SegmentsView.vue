@@ -122,7 +122,7 @@ onMounted(load)
           </span>
         </template>
         <ScatterPcaChart :points="projection.points" :auto-names="autoNames" />
-        <p class="muted mb-0">PCA 仅用于可视化，不参与分群训练；相关非因果。</p>
+        <DisclaimerBanner v-if="projection.disclaimer" :content="projection.disclaimer" />
       </ElCard>
 
       <ElCard v-if="compare?.comparison?.length" shadow="never" class="section-card">
@@ -166,6 +166,7 @@ onMounted(load)
           </ElTableColumn>
         </ElTable>
         <p class="muted mb-0">{{ compare.disclaimer }}</p>
+        <DisclaimerBanner v-if="compare.disclaimer" :content="compare.disclaimer" class="mt-sm" />
       </ElCard>
 
       <ElCard shadow="never" class="section-card">

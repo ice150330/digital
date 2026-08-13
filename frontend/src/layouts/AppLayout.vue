@@ -20,7 +20,7 @@ const navSections = [
   },
   {
     title: '描述性分析',
-    items: [{ to: '/', label: '数据总览', icon: 'uil:apps' }],
+    items: [{ to: '/overview', label: '数据总览', icon: 'uil:apps' }],
   },
   {
     title: '预测建模',
@@ -63,8 +63,14 @@ const statusText = computed(() => {
 })
 
 function isActive(path: string) {
-  if (path === '/') return route.path === '/'
+  if (path === '/overview') return route.path === '/overview'
   return route.path.startsWith(path)
+}
+
+function showSectionTitle(section: typeof navSections[number]) {
+  // 当分组标题与唯一子项标签重复时，不显示分组标题（避免「总览大屏 / 总览大屏」式冗余）
+  if (section.items.length === 1 && section.title === section.items[0].label) return false
+  return true
 }
 
 defineExpose({ refreshHealth, health })
@@ -96,7 +102,8 @@ defineExpose({ refreshHealth, health })
           <Icon :icon="collapsed ? 'uil:angle-right' : 'uil:angle-left'" size="md" :title="collapsed ? '展开侧栏' : '收起侧栏'" />
         </button>
         <nav v-for="section in navSections" :key="section.title" class="nav-section">
-          <div v-if="!collapsed" class="nav-title">{{ section.title }}</div>
+          <div v-if="!collapsed && showSectionTitle(section)" class="nav-title">{{ section.title }}</div>
+          <div v-else-if="!showSectionTitle(section) && !collapsed" class="nav-spacer" />
           <div v-else class="nav-divider" />
           <router-link
             v-for="item in section.items"
@@ -216,6 +223,9 @@ defineExpose({ refreshHealth, health })
   height: 1px;
   margin: var(--space-2) var(--space-2) var(--space-1);
   background: var(--border-default);
+}
+.nav-spacer {
+  height: var(--space-3);
 }
 .nav-item {
   display: flex;

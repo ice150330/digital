@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import {
-  ElButton, ElCard, ElDescriptions, ElDescriptionsItem, ElInput, ElSpace,
+  ElButton, ElCard, ElCollapse, ElCollapseItem, ElDescriptions, ElDescriptionsItem, ElInput, ElSpace,
   ElMessage, ElTable, ElTableColumn, ElTag,
 } from 'element-plus'
 import {
-  fetchAgentSession, fetchAuditRecent, fetchPiConfig, fetchPiModels, generateReport, updatePiConfig,
-  type AuditRow, type PiAgentConfigData, type PiAgentConfigUpdate, type PiModelItemData, type PiStatusData, type ReportData,
+  fetchAgentSession, fetchAuditRecent, fetchPiConfig, fetchPiModels, fetchToolsManifest, generateReport, updatePiConfig,
+  type AuditRow, type PiAgentConfigData, type PiAgentConfigUpdate, type PiModelItemData, type PiStatusData, type ReportData, type ToolManifestItem,
 } from '../api/agent'
 import EmptyState from '../components/EmptyState.vue'
 import ErrorState from '../components/ErrorState.vue'
@@ -38,6 +38,25 @@ const report = ref<ReportData | null>(null)
 const sessionId = ref('')
 const sessionData = ref<Record<string, unknown> | null>(null)
 const sessionError = ref<string | null>(null)
+const tools = ref<ToolManifestItem[]>([])
+const toolsOpen = ref<string[]>([])
+const toolsError = ref<string | null>(null)
+
+const auditAggregates = computed(() => {
+  const rows = audit.value
+  if (!rows.length) return []
+  const total = rows.length
+  const totalMs = rows.reduce((sum, r) => sum + (r.latency_ms ?? 0), 0)
+  const okCalls = rows.reduce((sum, r) => sum + (r.tool_calls?.filter((c) => c.ok).length ?? 0), 0)
+  const totalCalls = rows.reduce((sum, r) => sum + (r.tool_calls?.length ?? 0), 0)
+  const errors = rows.filter((r) => r.error).length
+  return [
+    { label: '审计条数', value: String(total), hint: '最近 50 条', icon: 'uil:file-alt', tone: 'info' as StatTone },
+    { label: '平均延迟', value: `${Math.round(totalMs / total)} ms`, hint: '含 LLM 等待', icon: 'uil:clock', tone: 'primary' as StatTone },
+    { label: '工具成功率', value: totalCalls ? `${((okCalls / totalCalls) * 100).toFixed(1)}%` : '—', hint: `${okCalls}/${totalCalls}`, icon: 'uil:check-circle', tone: 'success' as StatTone },
+    { label: '错误条数', value: String(errors), hint: '审计级异常', icon: 'uil:exclamation-triangle', tone: (errors ? 'warning' : 'success') as StatTone },
+  ]
+})
 
 async function load() {
   loading.value = true
@@ -48,6 +67,7 @@ async function load() {
     config.value = c.data
     pi.value = c.data.status
     audit.value = a.data.items
+    void loadTools()
     if (c.data.config_endpoint_ready === false) {
       configError.value = '后端尚未加载 /agent/pi/config，当前为只读兼容状态；重启 API 后即可保存配置。'
       modelItems.value = []
@@ -62,6 +82,17 @@ async function load() {
     error.value = e instanceof Error ? e.message : '加载失败'
   } finally {
     loading.value = false
+  }
+}
+
+async function loadTools() {
+  toolsError.value = null
+  try {
+    const r = await fetchToolsManifest()
+    tools.value = r.data.tools
+  } catch (e) {
+    tools.value = []
+    toolsError.value = e instanceof Error ? e.message : '工具清单获取失败'
   }
 }
 
@@ -316,7 +347,20 @@ const summaryItems = computed<PiSummaryItem[]>(() => {
 
         <ElCard shadow="never" class="section-card">
           <template #header>审计日志（最近 {{ audit.length }} 条）</template>
-          <ElTable :data="audit" size="small" stripe max-height="520">
+          <StatStrip :items="auditAggregates" class="mb-sm" />
+          <ElCollapse v-model="toolsOpen">
+            <ElCollapseItem title="工具清单" name="tools">
+              <p v-if="toolsError" class="err-text">{{ toolsError }}</p>
+              <div v-else-if="tools.length" class="tool-list">
+                <div v-for="t in tools" :key="t.name" class="tool-item">
+                  <span class="mono tool-name">{{ t.name }}</span>
+                  <span class="muted">{{ t.description }}</span>
+                </div>
+              </div>
+              <EmptyState v-else title="暂无工具清单" description="请确认 /agent/tools/manifest 已注册。" />
+            </ElCollapseItem>
+          </ElCollapse>
+          <ElTable :data="audit" size="small" stripe max-height="520" class="mt-sm">
             <ElTableColumn label="时间" width="150">
               <template #default="{ row }"><span class="mono muted">{{ row.ts }}</span></template>
             </ElTableColumn>
@@ -372,7 +416,7 @@ const summaryItems = computed<PiSummaryItem[]>(() => {
 .grid-2 > * {
   min-width: 0;
 }
-@media (max-width: 1100px) {
+@media (max-width: 992px) {
   .grid-2 {
     grid-template-columns: 1fr;
   }
@@ -394,6 +438,10 @@ const summaryItems = computed<PiSummaryItem[]>(() => {
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
 }
+.tool-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.tool-item { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) 0; border-bottom: 1px solid var(--border-default); }
+.tool-item:last-child { border-bottom: none; }
+.tool-name { color: var(--text-title); font-size: var(--font-size-sm); }
 .report-box {
   margin-top: var(--space-3);
 }

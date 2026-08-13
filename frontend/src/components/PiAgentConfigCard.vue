@@ -364,7 +364,7 @@ h2 {
 .form-actions {
   padding-top: var(--space-2);
 }
-@media (max-width: 900px) {
+@media (max-width: 992px) {
   .status-strip,
   .form-grid,
   .secret-row {

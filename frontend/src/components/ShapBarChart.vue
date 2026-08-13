@@ -10,7 +10,6 @@ export interface ShapItem {
 
 const props = defineProps<{
   items: ShapItem[]
-  title?: string
 }>()
 
 const axis = axisTheme()
@@ -59,18 +58,12 @@ const option = computed(() => {
 
 <template>
   <div>
-    <div v-if="title" class="title">{{ title }}</div>
     <BaseChart :option="option" />
     <p class="legend muted">蓝 = 推向转化 · 红 = 拉低转化（贡献方向，非严格因果）</p>
   </div>
 </template>
 
 <style scoped>
-.title {
-  margin-bottom: var(--space-2);
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-}
 .legend {
   margin: var(--space-1) 0 0;
 }

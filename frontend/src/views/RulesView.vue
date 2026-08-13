@@ -5,6 +5,7 @@ import { fetchRules, type RulesData } from '../api/rules'
 import EmptyState from '../components/EmptyState.vue'
 import DisclaimerBanner from '../components/DisclaimerBanner.vue'
 import ErrorState from '../components/ErrorState.vue'
+import LoadingState from '../components/LoadingState.vue'
 import PageHeaderBar from '../components/PageHeaderBar.vue'
 import RuleRow from '../components/RuleRow.vue'
 
@@ -48,6 +49,8 @@ onMounted(load)
     <DisclaimerBanner :content="data?.disclaimer || '关联规则表达的是相关而非因果，不可直接当作投放因果结论。'" />
 
     <ErrorState v-if="error && !loading" :message="error" @retry="load" />
+
+    <LoadingState v-if="loading && !data && !error" label="正在加载关联规则" />
 
     <ElCard v-else-if="data?.rules?.length" shadow="never" class="section-card">
       <template #header>
