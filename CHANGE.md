@@ -26,6 +26,16 @@
 
 ## 变更日志
 
+## 2026-08-02 — CLAUDE.md 同步 0802 系列变更
+
+- **类型：** docs
+- **范围：** `CLAUDE.md`、`CHANGE.md`
+- **摘要：** 将 CLAUDE.md 状态头与事实同步到 2026-08-02：测试基线改为 132 passed / 1 skipped（133 collected）；API 清单补 `/agent/chat/stream`、`GET/DELETE /agent/sessions`、`GET/PUT /agent/pi/config`、`GET /agent/pi/models`；Agent 契约补 `llm_model`；Runtime 说明由「无 Key 可 template」改为真实上游 LLM 回复、不可用返回 `LLM_UNAVAILABLE`；`/screen` 改为 AppLayout 内桑基大屏（不再 `meta.fullscreen` 绕过布局）；补测新测试文件命令。
+- **原因：** CLAUDE.md 停留在 2026-07-31 状态，与 AGENTS.md v0.11 及 0802 系列 CHANGE 条目不一致。
+- **影响：** 仅文档对齐，无代码与口径变化。
+- **破坏性：** 无
+- **验证：** 对照 `routes_agent.py` 路由注册、`frontend/src/router/index.ts`、`local_runtime.py`/`llm_client.py`、`tools/pi-cli/package.json` 逐条核对；`pytest --collect-only -q` 确认 133 collected。
+
 ## 2026-08-02 — 收紧 outputs 产物忽略规则
 
 - **类型：** chore

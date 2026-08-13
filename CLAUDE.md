@@ -2,14 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 项目状态（2026-07-31）
+## 项目状态（2026-08-02）
 
 本科毕设仓库：**数字营销转化分析 + 工具接地 AI Copilot + Pi 真实编排中枢**。
 
-**已落地：** M0 + 清洗/split + **E0–E8 全实验矩阵**（含 SMOTE/泄漏消融/Stacking/校准）+ CV/CI/曲线/lift/阈值扫描 + SHAP/PDP/反事实 + 多算法分群/PCA/稳定性 + 规则 + **预算模拟器** + 全量 API + **前端十路由**（+`/screen` 全屏大屏）+ **Pi 真实编排**（v0.83.0 SDK 桥接：`createAgentSession` + customTools 宿主代理，默认 runtime=pi、失败降级 local）。
+**已落地：** M0 + 清洗/split + **E0–E8 全实验矩阵**（含 SMOTE/泄漏消融/Stacking/校准）+ CV/CI/曲线/lift/阈值扫描 + SHAP/PDP/反事实 + 多算法分群/PCA/稳定性 + 规则 + **预算模拟器** + 全量 API + **前端十路由** + **Pi 真实编排**（v0.83.0 SDK 桥接：`createAgentSession` + customTools 宿主代理，默认 runtime=pi、失败降级 local）。
 **2026-07-31 重构：** `@tool` 装饰器一处注册、L1 描述性端点（dashboard/cross-matrix）、`render_chart` 图表工具（会话内联出图）、BaseChart 封装与色板单一真相、侧栏四层叙事分组、反事实/E4·E6 叙事降级（E5/E7/E8 主线保留）。  
+**2026-08-02 更新：** local 与 Pi 降级回复改经上游 OpenAI-compatible 真实 LLM 生成（`llm_client`；无 Key/上游不可用返回 `LLM_UNAVAILABLE`，`/agent` 移除模板入口）；SSE `status` 运行监控事件 + 响应带 `llm_model`；新增 `/agent/pi/config`（GET/PUT，密钥仅写本地 .env）与 `/agent/pi/models`（上游模型列表）；`/agent` 三栏布局 + Markdown 消息 + 契约默认折叠；`/screen` 并入 AppLayout 的浅色渠道转化桑基大屏。  
 **端口：** API **9800** · 前端 **5600**。  
-**验证：** `pytest` 115 passed，1 skipped。  
+**验证：** `pytest` 132 passed，1 skipped（133 collected）。  
 **P2 默认不做。**
 
 权威约束不在本文件重复展开：
@@ -83,6 +84,9 @@ pytest tests/test_simulate.py
 pytest tests/test_counterfactual.py
 pytest tests/test_api_advanced.py
 pytest tests/test_agent_runtime.py
+pytest tests/test_agent_llm_client.py
+pytest tests/test_agent_models.py
+pytest tests/test_openapi_routes.py
 
 # 论文表导出 / 演示清单
 python scripts/export_paper_tables.py
@@ -149,22 +153,25 @@ tools/pi-cli/  tests/  notebooks/  docs/plans/  docs/reports/  outputs/db/  pen/
   - `GET /explain/global`、`POST /explain/customer`、`GET /explain/pdp`、`POST /explain/counterfactual`
   - `GET /segments`、`POST /segments/assign`、`GET /segments/compare`、`GET /segments/projection`、`GET /rules`
   - `POST /simulate/budget`（期望值口径；`export=true` 落 CSV）
-  - `POST /agent/chat`、`GET /agent/sessions/{id}`、`POST /agent/runtime`、`GET /agent/pi/status`
+  - `POST /agent/chat`、`POST /agent/chat/stream`（SSE：status/tool_start/tool_end/chart/text/done 等事件）
+  - `GET /agent/sessions`（摘要列表）、`GET /agent/sessions/{id}`、`DELETE /agent/sessions/{id}`（软删可恢复）
+  - `POST /agent/runtime`、`GET /agent/pi/status`
+  - `GET/PUT /agent/pi/config`（配置卡片；Key 仅写本地 `.env`，回显 `api_key_configured` + 掩码）、`GET /agent/pi/models`（后端代拉上游 `/models`，Key 不出后端）
   - `GET /agent/tools/manifest`、`POST /agent/tool-run`（Pi 桥接：工具清单 + loopback 执行口）
   - `GET /agent/audit/recent`、`POST /agent/report`（一键分析报告 → `outputs/reports/`）
 - 预测须带回 `proba` / `label` / `threshold` / `run_id`；解释带回 `top_features` + `method`。
 - 默认 run：非 Dummy **非消融**中 PR-AUC 最高，0.01 窗口近并列偏好纯树/LightGBM（stacking 不享树加成；E5/E6 消融 run 代码级排除）。
-- Agent 输出契约：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace`。
-- Runtime：**默认 `pi`（真实编排中枢）**；桥接未就绪/失败明确降级 local 并在响应 `pi_fallback` + `open_questions` 标注；`pi` 仅 `tools/pi-cli/`（SDK 包 + `bridge/chat.mjs`）；无 Key 可 `template`。
+- Agent 输出契约：`observed_facts` / `inferences` / `recommendations` / `open_questions` / `tool_trace` / `llm_model`（+ `pi_fallback` 降级标注）。
+- Runtime：**默认 `pi`（真实编排中枢）**；桥接未就绪/失败明确降级 local 并在响应 `pi_fallback` + `open_questions` 标注；`pi` 仅 `tools/pi-cli/`（SDK 包 + `bridge/chat.mjs`）；local 与降级链回复均经上游 LLM 真实生成，无 Key/上游不可用返回 `LLM_UNAVAILABLE`，禁止模板段落伪装 AI 回复。
 - 工具注册：`@tool` 装饰器一处定义（catalog.py）；新增工具同步 `agent.yaml` whitelist + 本节 + CHANGE。
 - 审计：`outputs/agent_logs/*.jsonl`；会话：`outputs/agent_sessions/`；skills：`agent/skills/*/SKILL.md` ×7。
 
 ## 前端要点（细节见 DESIGN）
 
 - 栈：**Vue 3 + Vite + Element Plus + ECharts + axios**（勿擅自换 React 等）。ECharts 经 `utils/echarts.ts` 按需注册；所有图表经 `BaseChart` 渲染；图表色统一 `utils/chartTheme.ts`（与 tokens.css 单一真相）。
-- 路由：`/screen`（大屏，`meta.fullscreen` 绕过布局）`/` `/models` `/customers` `/segments` `/rules` `/simulate` `/agent` `/pi` `/about` 十路由均已挂真数据页；侧栏五组四层叙事（总览大屏 → 描述性分析 → 预测建模 → 深度挖掘 → AI 与系统）。
+- 路由：`/screen`（大屏，并入 AppLayout，中央渠道转化桑基图）`/` `/models` `/customers` `/segments` `/rules` `/simulate` `/agent` `/pi` `/about` 十路由均已挂真数据页；侧栏五组叙事（总览大屏 → 描述性分析 → 预测建模 → 深度挖掘 → AI 与系统）。
 - 数字一律来自后端；禁止前端假造 AUC。`baseURL` 用 `VITE_API_BASE_URL`。
-- `/agent` 页对 `render_chart` 工具结果经 `ChartCard` 内联渲染 chart-spec。
+- `/agent` 页对 `render_chart` 工具结果经 `ChartCard` 内联渲染 chart-spec；助手消息 Markdown 渲染，四段契约默认折叠，三栏布局（会话列表 / 对话 / 运行监控）。
 - 视觉真相：`pen/ui.pen`（令牌样张 + 组件库 + 十路由整页样张，与 DESIGN.md §6 令牌逐值一致）；视觉改动先改 .pen 再改代码。
 
 ## 改动纪律
