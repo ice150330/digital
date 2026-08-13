@@ -42,6 +42,14 @@ from digital_marketing.schemas.common import Envelope
 router = APIRouter(tags=["agent"])
 
 
+def _loopback_base(request: Request) -> str:
+    """Pi 桥接 loopback 基址：用真实请求端口回指宿主，避免硬编码 9800。"""
+    from digital_marketing.core.config import get_settings
+
+    port = request.url.port or 9800
+    return f"http://127.0.0.1:{port}{get_settings().api_prefix}"
+
+
 @router.post("/agent/chat", response_model=Envelope[ChatData])
 def agent_chat(body: ChatRequest, request: Request):
     request_id = getattr(request.state, "request_id", "unknown")
@@ -51,6 +59,7 @@ def agent_chat(body: ChatRequest, request: Request):
             session_id=body.session_id,
             runtime=body.runtime,
             request_id=request_id,
+            api_base=_loopback_base(request),
         )
         data = ChatData.model_validate(raw)
         return Envelope[ChatData](ok=True, data=data, error=None, request_id=request_id)
@@ -94,6 +103,7 @@ def agent_chat_stream(body: ChatRequest, request: Request) -> StreamingResponse:
                 runtime=body.runtime,
                 request_id=request_id,
                 on_event=emit,
+                api_base=_loopback_base(request),
             )
             if not emitted_done:
                 emit(

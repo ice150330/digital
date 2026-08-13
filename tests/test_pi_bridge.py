@@ -213,7 +213,7 @@ def test_run_pi_chat_assembles_when_bridge_ok(monkeypatch):
                  "sessions_count": 0, "valid_prefix": True, "executable": "x",
                  "bridge_ready": True, "bridge_note": None},
     )
-    monkeypatch.setattr(pr, "_run_bridge", lambda message, status: FAKE_EVENTS)
+    monkeypatch.setattr(pr, "_run_bridge", lambda message, status, **kwargs: FAKE_EVENTS)
 
     result = pr.run_pi_chat("数据规模和模型指标", session_id="t-bridge-ok", request_id="req-ok")
     assert result["runtime"] == "pi"
@@ -235,7 +235,7 @@ def test_run_pi_chat_fallback_on_bridge_error(monkeypatch):
                  "bridge_ready": True, "bridge_note": None},
     )
 
-    def boom(message, status):
+    def boom(message, status, **kwargs):
         raise PiBridgeError("测试：桥接崩溃")
 
     monkeypatch.setattr(pr, "_run_bridge", boom)

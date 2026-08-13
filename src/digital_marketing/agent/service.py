@@ -22,6 +22,7 @@ def chat(
     runtime: str | None = None,
     request_id: str = "unknown",
     on_event: EventSink | None = None,
+    api_base: str | None = None,
 ) -> dict[str, Any]:
     if not message or not str(message).strip():
         raise ValueError("message 不能为空")
@@ -29,7 +30,7 @@ def chat(
     sid = session_id or str(uuid.uuid4())
     rt = resolve_runtime(runtime)
     if rt == "pi":
-        return pi_runtime.run_pi_chat(msg, session_id=sid, request_id=request_id, on_event=on_event)
+        return pi_runtime.run_pi_chat(msg, session_id=sid, request_id=request_id, on_event=on_event, api_base=api_base)
     return run_local_chat(msg, session_id=sid, runtime=rt, request_id=request_id, on_event=on_event)
 
 

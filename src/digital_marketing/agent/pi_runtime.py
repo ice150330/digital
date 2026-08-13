@@ -164,6 +164,7 @@ def run_pi_chat(
     session_id: str,
     request_id: str,
     on_event: EventSink | None = None,
+    api_base: str | None = None,
 ) -> dict[str, Any]:
     """Pi 编排入口（service.chat 分发至此）。
 
@@ -185,7 +186,7 @@ def run_pi_chat(
     if on_event is not None:
         on_event("status", {"phase": "bridge", "message": "正在连接项目内 Pi bridge"})
     try:
-        events = _run_bridge(message, status)
+        events = _run_bridge(message, status, api_base=api_base)
     except (PiBridgeError, subprocess.TimeoutExpired, OSError) as e:
         return _fallback_local(message, session_id=session_id, request_id=request_id,
                                status=status, reason=f"Pi 桥接失败已降级: {e}", t0=t0, on_event=on_event)
@@ -283,7 +284,7 @@ def _forward_bridge_events(events: list[dict[str, Any]], on_event: EventSink | N
                 on_event("chart", {"spec": payload["result"]})
 
 
-def _run_bridge(message: str, status: dict[str, Any]) -> list[dict[str, Any]]:
+def _run_bridge(message: str, status: dict[str, Any], api_base: str | None = None) -> list[dict[str, Any]]:
     """spawn node bridge/chat.mjs：stdin 请求，stdout JSONL 事件流。"""
     from digital_marketing.core.config import get_settings
 
@@ -293,7 +294,8 @@ def _run_bridge(message: str, status: dict[str, Any]) -> list[dict[str, Any]]:
     timeout_sec = int(pi_cfg.get("timeout_sec") or 180)
     bridge_model = str(pi_cfg.get("bridge_model") or "deepseek/deepseek-chat")
     base_url = str(llm_cfg.get("base_url") or "").strip().rstrip("/")
-    api_base = f"http://127.0.0.1:9800{get_settings().api_prefix}"
+    if api_base is None:
+        api_base = f"http://127.0.0.1:9800{get_settings().api_prefix}"
     request = json.dumps(
         {
             "message": message,
