@@ -44,7 +44,7 @@ Data Dense 核心理念：
 2. 模型页突出 PR-AUC、ROC-AUC、校准、阈值和 Dummy 对照。
 3. 客户页支持单客预测、SHAP 解释和反事实敏感性分析。
 4. 分群、规则、模拟页承接数据挖掘结论，但不宣称因果收益。
-5. Agent 页展示真实上游 AI 回复、Markdown 消息、默认折叠的五段契约、tool_trace、会话、运行阶段和内联 chart-spec 图表。
+5. Agent 页为聊天优先的真实对话：自然流式 Markdown 消息、内联 chart-spec 图表；结构化契约不再作为必须的汇报格式，而是折叠进右侧分栏工作区（洞察 + 工具执行 + 运行状态）。
 6. `/screen` 作为开场全景：紧凑 KPI 指标行 + 中央渠道转化桑基大主图 + 右侧洞察列表 + 底部 2×2 小图网格，以密度而非装饰撑场面。
 
 ---
@@ -78,7 +78,7 @@ Data Dense 核心理念：
 | `/segments` | 分群画像 | 簇画像、PCA、算法对比、稳定性 |
 | `/rules` | 关联规则 | support/confidence/lift 表格与筛选 |
 | `/simulate` | 预算模拟 | 期望价值曲线、推荐 K、Top 触达名单 |
-| `/agent` | AI 分析台 | 真实 LLM 流式对话、Markdown 消息、运行监控、tool_trace、折叠契约、内联图表 |
+| `/agent` | AI 分析台 | 聊天优先的真实 LLM 流式对话、内联图表，右侧分栏工作区承载洞察 / 工具执行 / 运行状态 |
 | `/pi` | Pi 编排中枢 | PiAgent 配置卡片、健康摘要、skills、工具清单、审计、一键报告、会话回放 |
 | `/about` | 关于与复现 | 启动命令、数据来源、AI 使用边界 |
 
@@ -111,14 +111,15 @@ AppLayout
 
 ### 3.2 AI 分析台
 
-`/agent` 是运行中的分析驾驶舱，不做营销页。布局固定为：左侧会话列表、中间对话、右侧运行监控；≤992px 单列堆叠，390px 不允许横向滚动。
+`/agent` 是聊天优先的分析台，贴近真实对话体验，不做营销页。布局固定为：左侧会话列表、中间对话流、右侧分栏工作区；≤992px 单列堆叠，390px 不允许横向滚动。
 
 - Runtime 选择只展示 `pi` 与 `local`；`local` 表示上游 LLM + 宿主工具，不再展示模板模式作为用户入口。
 - 左侧会话列表展示标题、runtime、消息数、工具数、更新时间和短会话 ID；列表条目区在组件内部滚动，历史会话增加时不得继续撑高页面。
-- 右侧运行监控展示当前阶段（planning/bridge/tooling/replying/done/error）、当前工具、已完成工具数、图表数、SSE 事件数与最近事件时间。
-- 消息气泡展示 `runtime`、`llm_model`、`pi_fallback` 与耗时；消息正文使用 Markdown 渲染，至少覆盖标题、列表、引用、链接、行内代码、代码块、表格、分隔线与图片的响应式样式，禁用原始 HTML。
-- 五段契约中的观察事实、理解、建议和待确认内容默认折叠；用户主动展开前不得占用完整对话流空间。
-- 图表仍由 `render_chart` 的 chart-spec 内联渲染。
+- 中间对话区不套卡片框，消息以自然气泡流动；用户消息右对齐浅蓝底，助手消息带机器人头像 + 白底气泡，正文用 Markdown 渲染（至少覆盖标题、列表、引用、链接、行内代码、代码块、表格、分隔线与图片的响应式样式，禁用原始 HTML）。
+- 助手消息下方是紧凑 footer：`N 工具 · M 洞察 · llm_model · 耗时` 与「查看依据」聚焦按钮；点击把该消息的结构化数据载入右侧工作区。
+- **结构化契约（观察事实/理解/建议/待确认）不再作为必须的汇报格式内联展示**，而是折叠进右侧工作区的「洞察」卡片，默认收起、按需展开。
+- 右侧工作区（`AgentWorkspace`）自上而下：运行状态（planning/bridge/tooling/replying/done/error、当前工具、工具/图表/事件数、runtime·模型·会话）→ 洞察（四段契约默认折叠）→ 工具执行时间线；内容随聚焦消息联动，缺省回落最新一条助手回复。
+- 图表仍由 `render_chart` 的 chart-spec 内联渲染在消息正文之后。
 - 工具时间线必须实时反映 `tool_start/tool_end/chart/error`，失败工具保留中文错误与重试入口。
 
 ---
@@ -186,7 +187,7 @@ AppLayout
 | 预测 | 展示 `proba`、`label`、`threshold`、`run_id`、`model_name` |
 | 模型指标 | 主展示 PR-AUC；Accuracy 仅作为对照，不能做主结论 |
 | SHAP | 展示 `top_features` 和 `method`，文案使用“模型贡献/敏感性” |
-| Agent | 展示 runtime、`llm_model`、`pi_fallback`、运行阶段、Markdown 消息、默认折叠契约和 `tool_trace` |
+| Agent | 展示 runtime、`llm_model`、`pi_fallback`、运行阶段、Markdown 消息；结构化契约与 `tool_trace` 折叠进侧边工作区，不作为必须汇报格式 |
 | ChartCard | 只渲染宿主返回的 chart-spec v1.0，LLM/Pi 不产 spec |
 | 大屏 | `caliber` 原样展示；不得把横截面阶段解释为真实漏斗流失率 |
 | Pi | `/agent/pi/config` 展示/保存配置；`/agent/pi/models` 获取上游模型候选；`/agent/pi/status` 展示健康；不在前端探测本机路径；不展示 API Key 明文 |
@@ -259,7 +260,7 @@ AppLayout
 
 | 断点 | 用途 |
 |------|------|
-| `1280px` | 宽屏 → 中屏：大屏主区变单列、KPI/grid 列数减少、Agent 右侧监控下移 |
+| `1280px` | 宽屏 → 中屏：大屏主区变单列、KPI/grid 列数减少、Agent 侧边工作区下移并转三列 |
 | `992px` | 中屏 → 窄屏：侧栏强制折叠为图标；单列堆叠开始 |
 | `640px` | 窄屏 → 手机：header 精简、部分网格单列、桑基/PCA 等组件切换紧凑模式 |
 | `520px` | 手机最小：侧栏完全隐藏，主内容占满视口，避免任何页面级横向溢出 |
@@ -278,7 +279,8 @@ CSS 变量无法用于 `@media`，因此断点值在代码中写死；所有新�
 | `PageHeaderBar.vue` | 标题 18px，不要英雄化 |
 | `Tag.vue` / `RunIdChip.vue` | 方角色码徽章（4px 圆角，浅底+文字色编码），禁止胶囊形；长 run_id 允许截断但 tooltip 保留全量 |
 | `MarkdownContent.vue` | 消息 Markdown 渲染层；禁用原始 HTML，长表格和代码块必须组件内横向滚动 |
-| `AgentMessage.vue` | 用户/助手区分清楚；消息正文走 Markdown，事实/理解/建议/待确认默认折叠 |
+| `AgentMessage.vue` | 用户/助手区分清楚；消息正文走 Markdown，紧凑 footer（工具数/洞察数/模型/耗时 + 查看依据），图表内联；不再内联契约折叠 |
+| `AgentWorkspace.vue` | `/agent` 右侧分栏工作区：运行状态 + 洞察（四段契约默认折叠）+ 工具执行时间线；随聚焦消息联动，缺省回落最新助手回复 |
 | `ErrorState.vue` / `EmptyState.vue` | 中文说明 + 可执行下一步，不白屏；空态 padding 收敛（≤20px），禁止大面积空白 |
 | `DistributionBars.vue` | 后端 `HistBin[]` 分箱直方图；用于首页分布概览 |
 | `CrossMatrixHeatmap.vue` | 两维交叉转化率热力图；带默认 tooltip，颜色从 `chartTheme.ts` 取 |

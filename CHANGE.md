@@ -26,6 +26,20 @@
 
 ## 变更日志
 
+## 2026-08-13 — 会话模块升级：聊天优先 + 侧栏分栏工作区
+
+- **类型：** refactor / design
+- **范围：** `frontend/src/views/AgentView.vue`、`frontend/src/components/AgentMessage.vue`、`frontend/src/components/AgentWorkspace.vue`（新增）、`DESIGN.md`、`CHANGE.md`
+- **摘要：**
+  - 对话区去卡片框，改为自然聊天流：用户消息右对齐浅蓝底、助手消息白底气泡 + 头像，正文纯 Markdown 流式渲染，图表内联。
+  - **结构化契约（观察事实/理解/建议/待确认）不再作为必须的汇报格式内联展示**，改为折叠进右侧分栏工作区的「洞察」卡片（默认收起）。
+  - 新增 `AgentWorkspace.vue`：右侧工作区自上而下「运行状态 → 洞察 → 工具执行时间线」，随「查看依据」聚焦的消息联动，缺省回落最新一条助手回复。
+  - `AgentMessage.vue` 精简为真实聊天气泡：底部紧凑 footer（工具数/洞察数/模型/耗时 + 聚焦按钮），移除内联 contract-folds。
+  - 中间对话区不再套背景框、右侧「运行监控」重构为工作区并合并运行状态（phase/工具/图表/事件 + runtime·模型·会话）一处卡片；断点保持 1280/992/640。
+- **原因：** 用户要求会话模块贴近真实 chat 体验，取消汇报必填格式，将折叠模块迁至侧边作为分栏工作区，整体紧凑化。
+- **破坏性：** 无（后端契约字段未变，仅前端展示层迁移；`AgentMessage` 的 `focus` 事件与 `focused` prop 为新增）。
+- **验证：** `npm run build` 通过；grep 自查无残留 `contract-fold`/未定义 token（见提交）。
+
 ## 2026-08-13 — 设计系统迁移 Halo v2 → Data Dense v3
 
 - **类型：** design / refactor / docs
