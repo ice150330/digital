@@ -54,6 +54,28 @@ FolderName:
 ## **数据来源**
 [rabie el kharoua](https://www.kaggle.com/rabieelkharoua): [predict-conversion-in-digital-marketing-dataset](https://www.kaggle.com/datasets/rabieelkharoua/predict-conversion-in-digital-marketing-dataset)
 
+原始版本为 8,000 行、20 列，正类率 87.65%。
+
+## **扩增版本说明（2026-08-10）**
+
+当前 `digital_marketing_campaign_dataset.csv` 为 **200,000 行**的扩增版本，
+schema 与原始版本完全一致（20 列、列名与取值域不变），由本仓库
+`scripts/gen_dataset.py` 按原始数据的生成机制扩增生成：
+
+- **数据性质：** 扩增数据为**合成数据**（由脚本按分布生成），非真实采集的
+  业务数据；原始版本本身亦为 Kaggle 作者标注的合成数据。
+- **复现方式：** 随机种子固定（默认 `20260810`），相同参数输出完全可复现。
+  重新生成：`python scripts/gen_dataset.py --n 200000`
+- **标签生成：** 由 logit 模型生成，系数经数值标定，使各特征判别力
+  （Cohen's d）与原始 8000 行一致（偏差 ≤0.056）。
+- **正类率：** 由 87.65% 调整为 **31.84%**。原始分布下正类为绝对多数类，
+  PR-AUC 被压缩在极窄区间，实验矩阵各变体难以体现差异。
+- **消融实验支撑：** `EmailOpens`/`EmailClicks` 保持独立抽样（二者不成包含
+  关系，`email_inconsistent` 触发率 21.19%，原始 22.21%）；
+  `WebsiteVisits==0` 与深度信号并存（`invalid_web_metrics_flag` 触发率
+  1.02%，原始 1.86%）；`ConversionRate` 仍与标签相关但主模型默认排除，
+  供 E5 泄漏消融使用。
+
 ## **问题描述**
 **客户转化预测**：利用数据建立模型，预测客户转化的可能性。
 **渠道与活动分析**：评估不同营销渠道和活动类型对客户转化的影响。
