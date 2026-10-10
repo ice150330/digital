@@ -26,6 +26,18 @@
 
 ## 变更日志
 
+## 2026-08-10 — 数据集同分布扩增至 20 万行
+
+- **类型：** feat / chore
+- **范围：** `scripts/gen_dataset.py`（新增）、`data/digital_marketing_campaign_dataset.csv`、`src/digital_marketing/simulate/budget.py`、`frontend/src/views/{SimulateView,CustomersView,SegmentsView,AgentView}.vue`
+- **摘要：** 新增种子固定的扩增脚本 `scripts/gen_dataset.py`，按基准数据的生成机制扩增至 200,000 行，schema 保持 20 列不变；标签由 logit 模型生成，系数经数值标定使各特征判别力（Cohen's d）与基准一致。正类率由 87.65% 调整为 31.84%。同步更新预算模拟器默认成本参数与前端样例 CustomerID。
+- **原因：** 基准数据仅 8000 行、且正类率 87.65%（多数类），样本量与类别分布都不足以支撑 E0–E8 实验矩阵的对比；PR-AUC 在此分布下被压缩在极窄区间，各变体难以体现差异。经检索确认公开渠道不存在同结构大体量替代数据集（同类合成营销数据集普遍止于 8K 量级），故按原生成机制扩增而非更换数据集，以保证研究方向不变。
+- **影响：** 保持研究方向不变——`ConversionRate` 泄漏列（E5）、`email_inconsistent`/`invalid_web_metrics_flag` 质量 flag（E6）、渠道×类型交叉矩阵、规则挖掘、预算模拟器均继续可用，且消融对象与基准数据同量级（E6 触发率 21.19% / 1.02%，基准 22.21% / 1.86%）。E0–E8 现具备可区分的对比空间。
+- **破坏性：** 有。`CustomerID` 取值区间由 8000–15999 变为 1000000–1199999，前端样例 ID 已同步；`simulate/budget.py` 默认 `cost_per_contact` 由 4.0 调整为 2.0（盈亏平衡 proba 由 0.4 降至 0.2，需低于正类率 0.3184 否则曲线无内点最优）。`tests/test_pi_bridge.py`、`tests/test_agent_runtime.py` 中硬编码的行数断言改为读取真实数据集行数，避免再次随数据集变动而失效。
+- **数据口径：** 扩增数据由脚本按基准分布生成，属**合成数据**，非真实采集的业务数据。论文与文档中应据实说明生成方式与随机种子，不得表述为真实采集数据。
+- **环境修复：** 本机原无项目依赖。新建 `.venv`（Python 3.12）并 `pip install -e ".[dev]"`；需 `brew install libomp` 否则 LightGBM 无法加载；`scikit-learn` 须 `<1.6`（1.9 已移除 `CalibratedClassifierCV(cv="prefit")`，`models/calibrate.py` 依赖该参数）、`pandas` 须 `<3`。
+- **验证：** 全链路实测通过。导入 200000 行；清洗 `pos_rate=0.3184`、`email_inconsistent=42376`、`invalid_web=2041`，与生成器预估一致；E0–E8 矩阵 8 完成 / 1 跳过（E4 SMOTE 需 `imbalanced-learn`，属可选依赖 `[ml]`），PR-AUC 区间 0.3184（Dummy）–0.6895（E5 泄漏消融），实验间具备区分度；默认 run 选中 `E7_stacking_lgbm_rf_lr`（0.6758），**E5/E6 消融未参选，红线成立**；预算模拟器 `recommended_k=16250`，存在内点最优；`pytest` **111 passed / 22 skipped / 0 failed**；生成器两次运行 SHA256 一致，完全可复现。
+
 ## 2026-08-13 — 桑基图多阶段漏斗升级
 
 - **类型：** feat / refactor
