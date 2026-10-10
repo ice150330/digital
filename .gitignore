@@ -248,3 +248,6 @@ outputs/**/*.png
 !outputs/**/.gitkeep
 tools/pi-cli/node_modules/
 tools/pi-cli/**/node_modules/
+
+# macOS
+.DS_Store
