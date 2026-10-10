@@ -18,7 +18,7 @@ const error = ref<string | null>(null)
 const data = ref<BudgetSimulateData | null>(null)
 
 const valuePerConversion = ref(10)
-const costPerContact = ref(4)
+const costPerContact = ref(2)
 const budget = ref<number | null>(null)
 
 async function run(exportCsv = false) {

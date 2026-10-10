@@ -35,11 +35,11 @@ const loading = ref(false)
 const metaLoading = ref(true)
 const error = ref<string | null>(null)
 const meta = ref<FeatureMetaData | null>(null)
-const customerId = ref<number | null>(8000)
+const customerId = ref<number | null>(1000000)
 const form = reactive<Record<string, string | number>>({})
 const pred = ref<PredictData | null>(null)
 const expl = ref<CustomerExplainData | null>(null)
-const batchIds = ref('8000,8001,8002')
+const batchIds = ref('1000000,1000001,1000002')
 const batchResult = ref<BatchPredictData | null>(null)
 const batchLoading = ref(false)
 
@@ -287,14 +287,14 @@ onMounted(loadMeta)
         <EmptyState
           v-if="!pred && !loading"
           title="尚未预测"
-          description="输入 CustomerID（如 8000）或使用样例特征后点击预测。"
+          description="输入 CustomerID（如 1000000）或使用样例特征后点击预测。"
         />
 
         <ElCard shadow="never" class="section-card">
           <template #header>批量预测（上限 200）</template>
           <p class="muted mt-0">逗号分隔 CustomerID；结果仅供名单筛选参考，非因果。</p>
           <ElSpace wrap class="w-full">
-            <ElInput v-model="batchIds" class="input-wide" placeholder="8000,8001,8002" />
+            <ElInput v-model="batchIds" class="input-wide" placeholder="1000000,1000001,1000002" />
             <ElButton type="primary" :loading="batchLoading" @click="runBatch">批量预测</ElButton>
           </ElSpace>
           <div v-if="batchResult" class="batch-box">

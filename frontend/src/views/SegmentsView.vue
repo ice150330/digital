@@ -18,7 +18,7 @@ const error = ref<string | null>(null)
 const data = ref<SegmentsData | null>(null)
 const compare = ref<SegmentCompareData | null>(null)
 const projection = ref<SegmentProjectionData | null>(null)
-const customerId = ref<number>(8000)
+const customerId = ref<number>(1000000)
 const assignResult = ref<string>('')
 
 const autoNames = computed(() => compare.value?.auto_names ?? {})

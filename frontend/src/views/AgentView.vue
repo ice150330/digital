@@ -37,7 +37,7 @@ const focusedId = ref<string | null>(null)
 const chips = [
   '各渠道转化率',
   '实验矩阵 PR-AUC 对比',
-  '客户 8000 的转化解释',
+  '客户 1000000 的转化解释',
   '预算 5000 如何分配',
   '分群画像摘要',
 ]

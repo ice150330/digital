@@ -16,10 +16,12 @@ SIMULATE_DISCLAIMER = (
     "不构成因果 uplift 或实际投放收益承诺。"
 )
 
-# 默认口径：盈亏平衡 proba = cost/value = 0.4；
-# 本数据正类率 ~87.65% 概率整体偏高，比率 2.5 时曲线才有内点最优（可演示排序价值）
+# 默认口径：盈亏平衡 proba = cost/value = 0.2；
+# 本数据正类率 ~31.8%，高于该阈值，期望净收益曲线存在内点最优 K（可演示排序价值）。
+# 若更换数据集导致正类率低于 0.2，需同步下调 cost 或上调 value，否则曲线全程为负、
+# recommended_k 恒为 0，模拟器将失去可演示性。
 DEFAULT_VALUE_PER_CONVERSION = 10.0
-DEFAULT_COST_PER_CONTACT = 4.0
+DEFAULT_COST_PER_CONTACT = 2.0
 
 
 def expected_value_curve(
