@@ -15,6 +15,13 @@ from digital_marketing.core.paths import project_root
 from digital_marketing.data.db import reset_engine
 
 
+def _dataset_row_count() -> int:
+    """真实 CSV 行数（不含表头）；数据集规模可变，避免硬编码。"""
+    csv_path = project_root() / "data" / "digital_marketing_campaign_dataset.csv"
+    with csv_path.open("r", encoding="utf-8") as fh:
+        return max(sum(1 for _ in fh) - 1, 0)
+
+
 @pytest.fixture()
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     root = project_root()
@@ -52,7 +59,9 @@ def test_tool_run_endpoint_loopback(client: TestClient):
     d = r.json()["data"]
     assert d["ok"] is True
     assert d["tool"] == "get_dataset_profile"
-    assert d["result"]["n_rows"] == 8000
+    # 行数随数据集变动（基线 8000 → 扩增 200000），此处与真实数据集比对而非硬编码
+    expected_rows = _dataset_row_count()
+    assert d["result"]["n_rows"] == expected_rows
 
     bad = client.post("/api/v1/agent/tool-run", json={"name": "not_a_tool", "args": {}})
     bd = bad.json()["data"]

@@ -99,7 +99,11 @@ def test_generate_report_tool_writes_markdown():
     assert path.is_file()
     text = path.read_text(encoding="utf-8")
     assert "测试报告W9D" in text
-    assert "样本量 n_rows=8000" in text  # 数字来自工具
+    # 数字来自工具，且随数据集规模变动（基线 8000 → 扩增 200000）
+    from digital_marketing.agent.tools.catalog import get_dataset_profile
+
+    profile = get_dataset_profile()
+    assert f"样本量 n_rows={profile['n_rows']}" in text
     assert "口径与限制" in text
     assert r["n_sections_ok"] >= 5
     assert all("tool" in t and "ok" in t for t in r["tool_trace"])
